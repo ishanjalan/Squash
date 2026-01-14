@@ -23,7 +23,7 @@ interface CompressPayload {
 	id: string;
 	fileData: ArrayBuffer;
 	fileName: string;
-	outputFormat: 'mp4' | 'webm' | 'av1';
+	outputFormat: 'mp4' | 'webm';
 	settings: {
 		crf: number;
 		targetBitrate: string;
@@ -147,7 +147,7 @@ async function compressVideo(payload: CompressPayload) {
 		// Input/output filenames
 		const inputExt = fileName.split('.').pop() || 'mp4';
 		const inputFilename = `input_${id}.${inputExt}`;
-		const outputExt = outputFormat === 'av1' ? 'mp4' : outputFormat;
+		const outputExt = outputFormat;
 		const outputFilename = `output_${id}.${outputExt}`;
 
 		// Write input file
@@ -193,7 +193,7 @@ async function compressVideo(payload: CompressPayload) {
 			
 			firstPassArgs.push(
 				'-c:v',
-				outputFormat === 'av1' ? 'libaom-av1' : 'libx264',
+				'libx264',
 				'-b:v',
 				settings.targetBitrate,
 				'-pass',
@@ -252,7 +252,7 @@ async function compressVideo(payload: CompressPayload) {
 function buildFFmpegArgs(
 	input: string,
 	output: string,
-	format: 'mp4' | 'webm' | 'av1',
+	format: 'mp4' | 'webm',
 	settings: CompressPayload['settings'],
 	trimStart?: number,
 	trimEnd?: number
@@ -280,14 +280,6 @@ function buildFFmpegArgs(
 			args.push('-b:v', settings.targetBitrate);
 			args.push('-deadline', 'good');
 			args.push('-cpu-used', '2');
-			break;
-
-		case 'av1':
-			args.push('-c:v', 'libaom-av1');
-			args.push('-crf', settings.crf.toString());
-			args.push('-b:v', settings.targetBitrate);
-			args.push('-cpu-used', '4');
-			args.push('-row-mt', '1');
 			break;
 
 		case 'mp4':

@@ -56,11 +56,6 @@ export async function selectEncoder(
 	video: VideoItem,
 	outputFormat: OutputFormat
 ): Promise<{ encoder: EncoderType; reason: string }> {
-	// AV1 output always uses FFmpeg (WebCodecs AV1 encoding is very slow)
-	if (outputFormat === 'av1') {
-		return { encoder: 'ffmpeg', reason: 'AV1 encoding optimized for FFmpeg' };
-	}
-
 	// Check WebCodecs support
 	const capabilities = await initWebCodecs();
 
@@ -310,7 +305,7 @@ async function compressWithWebCodecs(
 ): Promise<{ blob: Blob; duration: number }> {
 	const startTime = Date.now();
 	const quality = videos.settings.quality;
-	const outputFormat = item.outputFormat === 'av1' ? 'mp4' : item.outputFormat;
+	const outputFormat = item.outputFormat;
 
 	// Map quality to bitrate (fallback for numeric bitrate)
 	const bitrateMap: Record<string, number> = {
@@ -484,7 +479,7 @@ export async function generatePreview(id: string): Promise<string | null> {
 					id,
 					fileData,
 					fileName: item.name,
-					outputFormat: item.outputFormat === 'av1' ? 'mp4' : item.outputFormat,
+					outputFormat: item.outputFormat,
 					settings: {
 						crf: preset.crf,
 						targetBitrate: preset.targetBitrate
@@ -507,7 +502,7 @@ export async function generatePreview(id: string): Promise<string | null> {
 }
 
 export function getOutputExtension(format: OutputFormat): string {
-	return format === 'av1' ? '.mp4' : `.${format}`;
+	return `.${format}`;
 }
 
 export function getOutputFilename(originalName: string, format: OutputFormat): string {

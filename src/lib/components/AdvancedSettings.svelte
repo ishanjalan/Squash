@@ -24,10 +24,9 @@
 	} from 'lucide-svelte';
 	import { slide } from 'svelte/transition';
 
-	const formats: { value: OutputFormat; label: string; desc: string; badge?: string }[] = [
+	const formats: { value: OutputFormat; label: string; desc: string }[] = [
 		{ value: 'mp4', label: 'MP4', desc: 'H.264 • Universal compatibility' },
-		{ value: 'webm', label: 'WebM', desc: 'VP9 • Modern browsers' },
-		{ value: 'av1', label: 'AV1', desc: 'Best compression • Slower', badge: 'NEW' }
+		{ value: 'webm', label: 'WebM', desc: 'VP9 • Modern browsers' }
 	];
 
 	const audioCodecs: { value: AudioCodec; label: string; desc: string }[] = [
@@ -470,10 +469,7 @@
 						<div class="flex items-start gap-2">
 							<Info class="h-4 w-4 text-surface-400 flex-shrink-0 mt-0.5" />
 							<p class="text-xs text-surface-500">
-								{#if videos.settings.outputFormat === 'av1'}
-									AV1 offers 30-50% better compression than H.264 but is significantly slower
-									to encode.
-								{:else if videos.settings.outputFormat === 'webm'}
+								{#if videos.settings.outputFormat === 'webm'}
 									VP9 provides excellent compression for web delivery with wide browser support.
 								{:else}
 									H.264/MP4 is the most compatible format, playable on virtually all devices.

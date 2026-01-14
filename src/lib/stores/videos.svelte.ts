@@ -1,5 +1,5 @@
 export type VideoFormat = 'mp4' | 'webm' | 'mov' | 'avi' | 'mkv';
-export type OutputFormat = 'mp4' | 'webm' | 'av1';
+export type OutputFormat = 'mp4' | 'webm';
 export type VideoStatus = 'pending' | 'processing' | 'completed' | 'error';
 export type Resolution = 'original' | '2160p' | '1440p' | '1080p' | '720p' | '480p' | '360p';
 export type AudioCodec = 'aac' | 'opus' | 'mp3' | 'copy' | 'none';
@@ -206,13 +206,7 @@ export function estimateFileSize(
 	const totalBitrate = videoBitrate + audioBitrate;
 	const estimatedBytes = (totalBitrate * duration) / 8;
 
-	// Apply format multiplier (AV1 is more efficient, WebM is similar to MP4)
-	let formatMultiplier = 1;
-	if (settings.outputFormat === 'av1') {
-		formatMultiplier = 0.7; // AV1 is ~30% more efficient
-	}
-
-	return Math.round(estimatedBytes * formatMultiplier);
+	return Math.round(estimatedBytes);
 }
 
 // Calculate required bitrate for a target file size
@@ -318,7 +312,7 @@ export function suggestOptimalSettings(video: VideoItem): {
 	if (width && width >= 3840) {
 		return {
 			preset: 'social',
-			format: 'av1',
+			format: 'mp4',
 			resolution: '1080p',
 			note: '4K source - consider downscaling for web use'
 		};
@@ -390,9 +384,7 @@ export function estimateCompressionTime(
 	baseMultiplier *= presetMultipliers[settings.preset] || 1;
 
 	// Adjust for format
-	if (settings.outputFormat === 'av1') {
-		baseMultiplier *= 3; // AV1 is much slower
-	} else if (settings.outputFormat === 'webm') {
+	if (settings.outputFormat === 'webm') {
 		baseMultiplier *= 1.5; // VP9 is slower than H.264
 	}
 

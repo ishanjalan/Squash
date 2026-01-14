@@ -159,13 +159,6 @@
 			return;
 		}
 
-		if (e.key.toLowerCase() === 'a' && !isMod) {
-			e.preventDefault();
-			videos.updateSettings({ outputFormat: 'av1' });
-			showNotification('Format: AV1', 'info');
-			return;
-		}
-
 		// P - Toggle performance monitor
 		if (e.key.toLowerCase() === 'p' && !isMod) {
 			e.preventDefault();

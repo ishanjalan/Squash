@@ -57,8 +57,7 @@
 
 	const availableFormats: { value: OutputFormat; label: string; color: string }[] = [
 		{ value: 'mp4', label: 'MP4', color: 'from-orange-500 to-red-500' },
-		{ value: 'webm', label: 'WebM', color: 'from-green-500 to-emerald-500' },
-		{ value: 'av1', label: 'AV1', color: 'from-purple-500 to-pink-500' }
+		{ value: 'webm', label: 'WebM', color: 'from-green-500 to-emerald-500' }
 	];
 
 	function formatBytes(bytes: number): string {
@@ -394,7 +393,7 @@
 							onclick={() => (showFormatMenu = !showFormatMenu)}
 							class="flex items-center gap-1 rounded bg-gradient-to-r {getCurrentFormatColor()} px-2 py-0.5 text-xs font-bold uppercase text-white transition-all hover:opacity-90"
 						>
-							{item.outputFormat === 'av1' ? 'AV1' : item.outputFormat}
+							{item.outputFormat.toUpperCase()}
 							<ChevronDown class="h-3 w-3" />
 						</button>
 
