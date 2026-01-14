@@ -1,0 +1,37 @@
+<script lang="ts">
+	import { base } from '$app/paths';
+	import { Github, Film } from 'lucide-svelte';
+</script>
+
+<header class="fixed top-0 left-0 right-0 z-50 px-4 sm:px-6 lg:px-8 py-4">
+	<div class="mx-auto max-w-7xl">
+		<nav
+			class="glass flex items-center justify-between rounded-2xl px-4 sm:px-6 py-3 shadow-lg shadow-black/5"
+		>
+			<!-- Logo -->
+			<a href="{base}/" class="flex items-center gap-3 group">
+				<div
+					class="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-accent-start to-accent-end shadow-lg shadow-accent-start/30 transition-transform group-hover:scale-110"
+				>
+					<Film class="h-5 w-5 text-white" strokeWidth={2.5} />
+				</div>
+				<span class="text-xl font-semibold tracking-tight">
+					<span class="gradient-text">Squash</span>
+				</span>
+			</a>
+
+			<!-- Right side -->
+			<div class="flex items-center gap-2">
+				<a
+					href="https://github.com/ishanjalan/Squash"
+					target="_blank"
+					rel="noopener noreferrer"
+					class="flex h-10 w-10 items-center justify-center rounded-xl text-surface-400 transition-all hover:bg-surface-800 hover:text-surface-100"
+					title="View on GitHub"
+				>
+					<Github class="h-5 w-5" />
+				</a>
+			</div>
+		</nav>
+	</div>
+</header>

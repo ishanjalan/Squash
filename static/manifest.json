@@ -1,0 +1,26 @@
+{
+	"name": "Squash - Video Compressor",
+	"short_name": "Squash",
+	"description": "Free online video compressor - compress MP4, WebM, MOV, and AVI files instantly in your browser. 100% private.",
+	"start_url": "/Squash/",
+	"scope": "/Squash/",
+	"display": "standalone",
+	"background_color": "#09090b",
+	"theme_color": "#f97316",
+	"orientation": "any",
+	"icons": [
+		{
+			"src": "/Squash/icon-192.svg",
+			"sizes": "192x192",
+			"type": "image/svg+xml",
+			"purpose": "any"
+		},
+		{
+			"src": "/Squash/icon-512.svg",
+			"sizes": "512x512",
+			"type": "image/svg+xml",
+			"purpose": "any"
+		}
+	],
+	"categories": ["utilities", "productivity"]
+}
