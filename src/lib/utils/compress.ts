@@ -252,7 +252,7 @@ export async function reprocessVideo(id: string) {
 		URL.revokeObjectURL(item.previewUrl);
 	}
 
-	// Reset status
+	// Reset status and clear error
 	videos.updateItem(id, {
 		status: 'pending',
 		progress: 0,
@@ -261,7 +261,8 @@ export async function reprocessVideo(id: string) {
 		compressedUrl: undefined,
 		compressedBlob: undefined,
 		previewUrl: undefined,
-		eta: undefined
+		eta: undefined,
+		error: undefined
 	});
 
 	// Get fresh item reference

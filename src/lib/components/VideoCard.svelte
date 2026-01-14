@@ -380,18 +380,59 @@
 			</div>
 
 		{:else if item.status === 'error'}
-			<div class="flex items-center justify-between">
-				<span class="flex items-center gap-1.5 text-xs text-red-400">
-					<AlertCircle class="h-3.5 w-3.5" />
-					Failed
-				</span>
-				<button
-					onclick={handleRetry}
-					class="flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-400 hover:text-red-300 transition-colors"
-				>
-					<RotateCcw class="h-3 w-3" />
-					Retry
-				</button>
+			<div class="space-y-2">
+				<!-- Error message -->
+				<div class="flex items-start gap-1.5 text-xs text-red-400">
+					<AlertCircle class="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
+					<span class="break-words">{item.error || 'Compression failed'}</span>
+				</div>
+				<!-- Retry options -->
+				<div class="flex items-center justify-between">
+					<!-- Format selector for retry -->
+					<div class="relative">
+						<button
+							onclick={() => (showFormatMenu = !showFormatMenu)}
+							class="flex items-center gap-1 rounded bg-gradient-to-r {getCurrentFormatColor()} px-2 py-0.5 text-xs font-bold uppercase text-white transition-all hover:opacity-90"
+						>
+							{item.outputFormat.toUpperCase()}
+							<ChevronDown class="h-3 w-3" />
+						</button>
+
+						{#if showFormatMenu}
+							<button
+								class="fixed inset-0 z-40"
+								onclick={() => (showFormatMenu = false)}
+								aria-label="Close"
+							></button>
+							<div
+								class="absolute left-0 bottom-full z-50 mb-1 min-w-[100px] overflow-hidden rounded-lg bg-surface-800 shadow-xl ring-1 ring-white/10"
+								transition:scale={{ duration: 100, start: 0.95 }}
+							>
+								{#each availableFormats as format}
+									{@const isDisabled = (format.value === 'av1' && !av1Available()) || (format.value === 'hevc' && !hevcAvailable())}
+									<button
+										onclick={() => !isDisabled && handleFormatChange(format.value)}
+										disabled={isDisabled}
+										class="flex w-full items-center gap-2 px-3 py-2 text-xs transition-colors {isDisabled 
+											? 'opacity-50 cursor-not-allowed' 
+											: 'hover:bg-surface-700'} {item.outputFormat === format.value ? 'bg-surface-700/50' : ''}"
+										title={isDisabled ? `${format.label} requires hardware encoder support` : ''}
+									>
+										<span class="h-2 w-2 rounded-full bg-gradient-to-r {format.color}"></span>
+										<span class="font-medium text-surface-300">{format.label}</span>
+									</button>
+								{/each}
+							</div>
+						{/if}
+					</div>
+					<button
+						onclick={handleRetry}
+						class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors"
+					>
+						<RotateCcw class="h-3 w-3" />
+						Retry
+					</button>
+				</div>
 			</div>
 
 		{:else if item.status === 'completed'}
