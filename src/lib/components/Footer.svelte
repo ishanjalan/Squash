@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Heart, Github, Shield, Zap } from 'lucide-svelte';
+	import { Heart, Github, Shield, Zap, Image } from 'lucide-svelte';
 </script>
 
 <footer class="mt-auto border-t border-surface-800/50 py-6">
@@ -39,7 +39,17 @@
 			</div>
 
 			<!-- Right: Links -->
-			<div class="flex items-center gap-4">
+			<div class="flex items-center gap-3">
+				<a
+					href="https://ishanjalan.github.io/ImageOptimser/"
+					target="_blank"
+					rel="noopener noreferrer"
+					class="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-pink-500/10 to-purple-500/10 px-3 py-1 text-sm font-medium text-pink-400 transition-all hover:from-pink-500/20 hover:to-purple-500/20"
+				>
+					<Image class="h-3.5 w-3.5" />
+					<span>Squish</span>
+				</a>
+				<span class="text-surface-700">•</span>
 				<a
 					href="https://github.com/ishanjalan/Squash"
 					target="_blank"
