@@ -261,9 +261,9 @@
 							.settings.outputFormat === format.value
 							? 'bg-accent-start text-white shadow-md shadow-accent-start/30'
 							: isDisabled
-								? 'text-surface-600 cursor-not-allowed'
+								? 'text-surface-600 cursor-not-allowed opacity-40 line-through'
 								: 'text-surface-400 hover:text-surface-200 hover:bg-surface-700/50'}"
-						title={isDisabled ? `${format.label} requires hardware encoder support` : format.desc}
+						title={isDisabled ? `${format.label} requires hardware encoder (not available on this device)` : format.desc}
 					>
 						{format.label}
 						{#if isHardwareCodec && isAvailable}
@@ -271,6 +271,12 @@
 								class="absolute -top-1.5 -right-1.5 px-1 py-0.5 text-[9px] font-bold bg-purple-500 text-white rounded"
 							>
 								GPU
+							</span>
+						{:else if isHardwareCodec && isDisabled}
+							<span
+								class="absolute -top-1.5 -right-1.5 px-1 py-0.5 text-[9px] font-bold bg-surface-600 text-surface-400 rounded"
+							>
+								N/A
 							</span>
 						{/if}
 					</button>

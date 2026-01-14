@@ -410,16 +410,23 @@
 							>
 								{#each availableFormats as format}
 									{@const isDisabled = (format.value === 'av1' && !av1Available()) || (format.value === 'hevc' && !hevcAvailable())}
+									{@const isHardwareCodec = format.value === 'av1' || format.value === 'hevc'}
+									{@const isAvailable = (format.value === 'av1' && av1Available()) || (format.value === 'hevc' && hevcAvailable())}
 									<button
 										onclick={() => !isDisabled && handleFormatChange(format.value)}
 										disabled={isDisabled}
 										class="flex w-full items-center gap-2 px-3 py-2 text-xs transition-colors {isDisabled 
-											? 'opacity-50 cursor-not-allowed' 
+											? 'opacity-40 cursor-not-allowed' 
 											: 'hover:bg-surface-700'} {item.outputFormat === format.value ? 'bg-surface-700/50' : ''}"
-										title={isDisabled ? `${format.label} requires hardware encoder support` : ''}
+										title={isDisabled ? `${format.label} not available on this device` : ''}
 									>
-										<span class="h-2 w-2 rounded-full bg-gradient-to-r {format.color}"></span>
-										<span class="font-medium text-surface-300">{format.label}</span>
+										<span class="h-2 w-2 rounded-full bg-gradient-to-r {format.color} {isDisabled ? 'opacity-50' : ''}"></span>
+										<span class="font-medium {isDisabled ? 'text-surface-500 line-through' : 'text-surface-300'}">{format.label}</span>
+										{#if isHardwareCodec && isAvailable}
+											<span class="ml-auto text-[9px] text-purple-400">GPU</span>
+										{:else if isHardwareCodec && isDisabled}
+											<span class="ml-auto text-[9px] text-surface-500">N/A</span>
+										{/if}
 									</button>
 								{/each}
 							</div>
@@ -469,14 +476,16 @@
 										onclick={() => !isDisabled && handleFormatChange(format.value)}
 										disabled={isDisabled}
 										class="flex w-full items-center gap-2 px-3 py-2 text-xs transition-colors {isDisabled 
-											? 'opacity-50 cursor-not-allowed' 
+											? 'opacity-40 cursor-not-allowed' 
 											: 'hover:bg-surface-700'} {item.outputFormat === format.value ? 'bg-surface-700/50' : ''}"
-										title={isDisabled ? `${format.label} requires hardware encoder support` : ''}
+										title={isDisabled ? `${format.label} not available on this device` : ''}
 									>
-										<span class="h-2 w-2 rounded-full bg-gradient-to-r {format.color}"></span>
-										<span class="font-medium text-surface-300">{format.label}</span>
+										<span class="h-2 w-2 rounded-full bg-gradient-to-r {format.color} {isDisabled ? 'opacity-50' : ''}"></span>
+										<span class="font-medium {isDisabled ? 'text-surface-500 line-through' : 'text-surface-300'}">{format.label}</span>
 										{#if isHardwareCodec && isAvailable}
 											<span class="ml-auto text-[9px] text-purple-400">GPU</span>
+										{:else if isHardwareCodec && isDisabled}
+											<span class="ml-auto text-[9px] text-surface-500">N/A</span>
 										{/if}
 									</button>
 								{/each}
