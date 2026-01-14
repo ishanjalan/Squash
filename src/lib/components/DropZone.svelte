@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { Upload, Film } from 'lucide-svelte';
 	import { videos } from '$lib/stores/videos.svelte';
-	import { processVideos } from '$lib/utils/compress';
 
 	let isDragging = $state(false);
 	let fileInput: HTMLInputElement;
@@ -41,10 +40,8 @@
 
 		const files = e.dataTransfer?.files;
 		if (files && files.length > 0) {
-			const newItems = await videos.addFiles(files);
-			if (newItems.length > 0) {
-				await processVideos(newItems.map((i) => i.id));
-			}
+			// Just add files - don't auto-compress
+			await videos.addFiles(files);
 		}
 	}
 
@@ -52,10 +49,8 @@
 		const input = e.target as HTMLInputElement;
 		const files = input.files;
 		if (files && files.length > 0) {
-			const newItems = await videos.addFiles(files);
-			if (newItems.length > 0) {
-				await processVideos(newItems.map((i) => i.id));
-			}
+			// Just add files - don't auto-compress
+			await videos.addFiles(files);
 		}
 		input.value = '';
 	}

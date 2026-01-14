@@ -10,20 +10,17 @@
 		type Resolution,
 		type AudioCodec
 	} from '$lib/stores/videos.svelte';
-	import { reprocessAllVideos } from '$lib/utils/compress';
+	import { reprocessAllVideos, processVideos } from '$lib/utils/compress';
 	import {
 		Settings2,
 		RefreshCw,
 		ChevronDown,
 		ChevronUp,
-		Film,
 		Volume2,
 		Maximize,
 		Zap,
-		Trash2,
 		Info,
-		Target,
-		HardDrive
+		Play
 	} from 'lucide-svelte';
 	import { slide } from 'svelte/transition';
 
@@ -61,19 +58,15 @@
 	}));
 
 	let isExpanded = $state(false);
-	let isReprocessing = $state(false);
+	let isProcessing = $state(false);
 	let targetSizeInput = $state('');
+	let showSizePresets = $state(false);
 	
+	const pendingVideos = $derived(videos.items.filter((i) => i.status === 'pending'));
+	const hasPendingVideos = $derived(pendingVideos.length > 0);
 	const hasCompletedVideos = $derived(videos.items.some((i) => i.status === 'completed'));
+	const isAnyProcessing = $derived(videos.items.some((i) => i.status === 'processing'));
 	const hasTargetSize = $derived(videos.settings.targetSizeMB !== undefined);
-	
-	// Calculate total estimated size for all pending videos
-	const totalEstimatedSize = $derived(() => {
-		const pendingItems = videos.items.filter((i) => i.status === 'pending');
-		if (pendingItems.length === 0) return 0;
-		
-		return pendingItems.reduce((acc, item) => acc + estimateFileSize(item, videos.settings), 0);
-	});
 	
 	// Initialize target size input when it changes
 	$effect(() => {
@@ -82,18 +75,11 @@
 		}
 	});
 
-	function formatBytes(bytes: number): string {
-		if (bytes === 0) return '0 B';
-		const k = 1024;
-		const sizes = ['B', 'KB', 'MB', 'GB'];
-		const i = Math.floor(Math.log(bytes) / Math.log(k));
-		return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-	}
-
 	function handlePresetClick(key: keyof typeof QUALITY_PRESETS) {
 		// Clear target size when selecting a quality preset
 		videos.updateSettings({ quality: key, targetSizeMB: undefined });
 		targetSizeInput = '';
+		showSizePresets = false;
 	}
 
 	function handleFormatChange(format: OutputFormat) {
@@ -112,6 +98,7 @@
 	function handleSizePresetClick(sizeMB: number) {
 		videos.updateSettings({ targetSizeMB: sizeMB });
 		targetSizeInput = sizeMB.toString();
+		showSizePresets = false;
 	}
 
 	function clearTargetSize() {
@@ -135,118 +122,142 @@
 		videos.updateSettings({ preset });
 	}
 
+	async function handleCompressAll() {
+		if (hasPendingVideos) {
+			isProcessing = true;
+			await processVideos(pendingVideos.map((i) => i.id));
+			isProcessing = false;
+		}
+	}
+
 	async function handleRecompressAll() {
-		isReprocessing = true;
+		isProcessing = true;
 		await reprocessAllVideos();
-		isReprocessing = false;
+		isProcessing = false;
 	}
 </script>
 
 <div class="glass mb-6 sm:mb-8 rounded-2xl overflow-hidden">
 	<!-- Main settings row -->
 	<div class="p-4 sm:p-6">
-		<div class="flex flex-wrap items-center gap-x-6 gap-y-4 lg:gap-x-8">
+		<div class="flex flex-wrap items-center gap-3 sm:gap-4">
 			<!-- Quality Presets -->
-			<div class="flex items-center gap-3">
-				<span class="text-sm font-medium text-surface-400 uppercase tracking-wide">Quality</span>
-				<div class="flex gap-1.5">
-					{#each presets as preset}
-						<button
-							onclick={() => handlePresetClick(preset.key)}
-							class="px-3 py-1.5 text-sm font-medium rounded-lg transition-all {videos.settings
-								.quality === preset.key && !hasTargetSize
-								? 'bg-accent-start text-white shadow-md shadow-accent-start/30'
-								: hasTargetSize
-									? 'text-surface-500 hover:text-surface-400 hover:bg-surface-700/30'
-									: 'text-surface-400 hover:text-surface-200 hover:bg-surface-700/50'}"
-							title="{preset.desc} (CRF {preset.crf})"
-						>
-							{preset.label}
-						</button>
-					{/each}
-				</div>
-			</div>
-
-			<!-- Target Size -->
-			<div class="flex items-center gap-2">
-				<span class="text-sm text-surface-500">or</span>
-				<div class="relative flex items-center">
-					<Target class="absolute left-2.5 h-4 w-4 text-surface-500" />
-					<input
-						type="text"
-						class="w-20 rounded-lg bg-surface-800 border border-surface-700 pl-8 pr-2 py-1.5 text-sm text-surface-200 placeholder-surface-500 focus:ring-1 focus:ring-accent-start focus:border-accent-start focus:outline-none {hasTargetSize
-							? 'ring-1 ring-accent-start border-accent-start'
-							: ''}"
-						placeholder="Size"
-						bind:value={targetSizeInput}
-						onblur={handleTargetSizeChange}
-						onkeydown={(e) => e.key === 'Enter' && handleTargetSizeChange()}
-					/>
-					<span class="ml-1.5 text-sm text-surface-500">MB</span>
-				</div>
-				{#if hasTargetSize}
-					<button
-						onclick={clearTargetSize}
-						class="text-xs text-surface-500 hover:text-surface-300"
-					>
-						Clear
-					</button>
-				{/if}
-			</div>
-
-			<!-- Quick size presets -->
 			<div class="flex gap-1">
-				{#each sizePresets as preset}
+				{#each presets as preset}
 					<button
-						onclick={() => handleSizePresetClick(preset.sizeMB)}
-						class="px-2 py-1 text-xs rounded-md transition-all {videos.settings.targetSizeMB === preset.sizeMB
-							? 'bg-accent-start/20 text-accent-start ring-1 ring-accent-start/50'
-							: 'text-surface-500 hover:text-surface-300 hover:bg-surface-700/50'}"
-						title="{preset.label} ({preset.sizeMB} MB)"
+						onclick={() => handlePresetClick(preset.key)}
+						class="px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-all {videos.settings
+							.quality === preset.key && !hasTargetSize
+							? 'bg-accent-start text-white shadow-md shadow-accent-start/30'
+							: hasTargetSize
+								? 'text-surface-500 hover:text-surface-400 hover:bg-surface-700/30'
+								: 'text-surface-400 hover:text-surface-200 hover:bg-surface-700/50'}"
+						title="{preset.desc} (CRF {preset.crf})"
 					>
-						{preset.icon}
+						{preset.label}
 					</button>
 				{/each}
 			</div>
 
-			<!-- Divider -->
-			<div class="hidden lg:block w-px h-6 bg-surface-700"></div>
-
-			<!-- Output Format -->
-			<div class="flex items-center gap-3">
-				<Film class="h-4 w-4 text-surface-400" />
-				<div class="flex gap-1.5">
-					{#each formats as format}
-						<button
-							onclick={() => handleFormatChange(format.value)}
-							class="relative px-3 py-1.5 text-sm font-medium rounded-lg transition-all {videos
-								.settings.outputFormat === format.value
-								? 'bg-accent-start text-white shadow-md shadow-accent-start/30'
-								: 'text-surface-400 hover:text-surface-200 hover:bg-surface-700/50'}"
-							title={format.desc}
-						>
-							{format.label}
-							{#if format.badge}
-								<span
-									class="absolute -top-1 -right-1 px-1 py-0.5 text-[10px] font-bold bg-green-500 text-white rounded"
+			<!-- Target Size - Compact dropdown style -->
+			<div class="relative">
+				<button
+					onclick={() => (showSizePresets = !showSizePresets)}
+					class="flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-all {hasTargetSize
+						? 'bg-accent-start text-white shadow-md shadow-accent-start/30'
+						: 'text-surface-400 hover:text-surface-200 hover:bg-surface-700/50'}"
+				>
+					{hasTargetSize ? `${videos.settings.targetSizeMB} MB` : 'Target Size'}
+					<ChevronDown class="h-3.5 w-3.5" />
+				</button>
+				
+				{#if showSizePresets}
+					<button
+						class="fixed inset-0 z-40"
+						onclick={() => (showSizePresets = false)}
+						aria-label="Close"
+					></button>
+					<div
+						class="absolute left-0 top-full z-50 mt-2 w-48 overflow-hidden rounded-xl bg-surface-800 shadow-xl ring-1 ring-white/10"
+						transition:slide={{ duration: 150 }}
+					>
+						<!-- Custom input -->
+						<div class="p-3 border-b border-surface-700/50">
+							<div class="flex items-center gap-2">
+								<input
+									type="text"
+									class="flex-1 rounded-lg bg-surface-700 border border-surface-600 px-3 py-1.5 text-sm text-surface-200 placeholder-surface-500 focus:ring-1 focus:ring-accent-start focus:border-accent-start focus:outline-none"
+									placeholder="Custom MB"
+									bind:value={targetSizeInput}
+									onkeydown={(e) => {
+										if (e.key === 'Enter') {
+											handleTargetSizeChange();
+											showSizePresets = false;
+										}
+									}}
+								/>
+								<button
+									onclick={() => { handleTargetSizeChange(); showSizePresets = false; }}
+									class="px-2 py-1.5 text-xs font-medium rounded-lg bg-accent-start text-white hover:bg-accent-start/80"
 								>
-									{format.badge}
-								</span>
-							{/if}
-						</button>
-					{/each}
-				</div>
+									Set
+								</button>
+							</div>
+						</div>
+						<!-- Presets -->
+						<div class="p-1.5">
+							{#each sizePresets as preset}
+								<button
+									onclick={() => handleSizePresetClick(preset.sizeMB)}
+									class="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-all {videos.settings.targetSizeMB === preset.sizeMB
+										? 'bg-accent-start/20 text-accent-start'
+										: 'text-surface-300 hover:bg-surface-700'}"
+								>
+									<span class="text-base">{preset.icon}</span>
+									<span class="flex-1 text-left">{preset.label}</span>
+									<span class="text-xs text-surface-500">{preset.sizeMB} MB</span>
+								</button>
+							{/each}
+						</div>
+						{#if hasTargetSize}
+							<div class="p-2 border-t border-surface-700/50">
+								<button
+									onclick={clearTargetSize}
+									class="w-full px-3 py-1.5 text-xs text-surface-500 hover:text-surface-300 transition-colors"
+								>
+									Clear target size
+								</button>
+							</div>
+						{/if}
+					</div>
+				{/if}
 			</div>
 
-			<!-- Estimated Size -->
-			{#if totalEstimatedSize() > 0}
-				<div class="flex items-center gap-2 text-sm">
-					<HardDrive class="h-4 w-4 text-surface-500" />
-					<span class="text-surface-400">
-						~{formatBytes(totalEstimatedSize())}
-					</span>
-				</div>
-			{/if}
+			<!-- Subtle divider -->
+			<div class="hidden sm:block w-px h-5 bg-surface-700/50"></div>
+
+			<!-- Output Format - Inline -->
+			<div class="flex gap-1">
+				{#each formats as format}
+					<button
+						onclick={() => handleFormatChange(format.value)}
+						class="relative px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-all {videos
+							.settings.outputFormat === format.value
+							? 'bg-accent-start text-white shadow-md shadow-accent-start/30'
+							: 'text-surface-400 hover:text-surface-200 hover:bg-surface-700/50'}"
+						title={format.desc}
+					>
+						{format.label}
+						{#if format.badge}
+							<span
+								class="absolute -top-1.5 -right-1.5 px-1 py-0.5 text-[9px] font-bold bg-green-500 text-white rounded"
+							>
+								{format.badge}
+							</span>
+						{/if}
+					</button>
+				{/each}
+			</div>
 
 			<!-- Spacer -->
 			<div class="flex-1"></div>
@@ -254,26 +265,40 @@
 			<!-- Advanced toggle -->
 			<button
 				onclick={() => (isExpanded = !isExpanded)}
-				class="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-surface-400 hover:text-surface-200 transition-colors"
+				class="flex items-center gap-1.5 px-2.5 py-1.5 text-xs sm:text-sm font-medium text-surface-400 hover:text-surface-200 transition-colors"
 			>
 				<Settings2 class="h-4 w-4" />
-				Advanced
+				<span class="hidden sm:inline">Advanced</span>
 				{#if isExpanded}
-					<ChevronUp class="h-4 w-4" />
+					<ChevronUp class="h-3.5 w-3.5" />
 				{:else}
-					<ChevronDown class="h-4 w-4" />
+					<ChevronDown class="h-3.5 w-3.5" />
 				{/if}
 			</button>
 
-			<!-- Re-compress Button -->
-			{#if hasCompletedVideos}
+			<!-- Compress / Re-compress Button -->
+			{#if hasPendingVideos}
+				<button
+					onclick={handleCompressAll}
+					disabled={isProcessing || isAnyProcessing}
+					class="flex items-center gap-2 px-4 sm:px-5 py-2 text-sm font-semibold rounded-xl bg-gradient-to-r from-accent-start to-accent-end text-white shadow-lg shadow-accent-start/30 hover:shadow-xl hover:shadow-accent-start/40 hover:scale-105 transition-all disabled:opacity-50 disabled:hover:scale-100"
+				>
+					{#if isProcessing || isAnyProcessing}
+						<RefreshCw class="h-4 w-4 animate-spin" />
+						<span>Compressing...</span>
+					{:else}
+						<Play class="h-4 w-4" />
+						<span>Compress ({pendingVideos.length})</span>
+					{/if}
+				</button>
+			{:else if hasCompletedVideos}
 				<button
 					onclick={handleRecompressAll}
-					disabled={isReprocessing}
-					class="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl bg-accent-start text-white shadow-md shadow-accent-start/30 hover:shadow-lg hover:shadow-accent-start/40 transition-all disabled:opacity-50"
+					disabled={isProcessing || isAnyProcessing}
+					class="flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-xl bg-surface-700 text-surface-300 hover:bg-surface-600 transition-all disabled:opacity-50"
 				>
-					<RefreshCw class="h-4 w-4 {isReprocessing ? 'animate-spin' : ''}" />
-					{isReprocessing ? 'Working...' : 'Re-compress'}
+					<RefreshCw class="h-4 w-4 {isProcessing || isAnyProcessing ? 'animate-spin' : ''}" />
+					<span class="hidden sm:inline">{isProcessing || isAnyProcessing ? 'Working...' : 'Re-compress'}</span>
 				</button>
 			{/if}
 		</div>

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { videos, type VideoItem, type OutputFormat, suggestOptimalSettings, estimateFileSize, getEffectiveDuration, QUALITY_PRESETS } from '$lib/stores/videos.svelte';
+	import { videos, type VideoItem, type OutputFormat, estimateFileSize, getEffectiveDuration } from '$lib/stores/videos.svelte';
 	import { downloadVideo } from '$lib/utils/download';
 	import { reprocessVideo, generatePreview, getOutputFilename } from '$lib/utils/compress';
 	import {
@@ -13,15 +13,12 @@
 		RotateCcw,
 		Play,
 		SplitSquareHorizontal,
-		Lightbulb,
-		Clock,
-		Eye,
 		Gpu,
 		Server,
 		Scissors,
 		GripVertical
 	} from 'lucide-svelte';
-	import { fade, scale } from 'svelte/transition';
+	import { fade, scale, slide } from 'svelte/transition';
 	import VideoComparison from './VideoComparison.svelte';
 
 	let { item }: { item: VideoItem } = $props();
@@ -29,8 +26,6 @@
 	let showFormatMenu = $state(false);
 	let showPreview = $state(false);
 	let showComparison = $state(false);
-	let showSuggestion = $state(false);
-	let isGeneratingPreview = $state(false);
 	let showTrimUI = $state(false);
 	let trimStartInput = $state('');
 	let trimEndInput = $state('');
@@ -40,7 +35,6 @@
 	);
 
 	const isPositiveSavings = $derived(savings > 0);
-	const suggestion = $derived(suggestOptimalSettings(item));
 	
 	// Estimated file size for pending items
 	const estimatedSize = $derived(
@@ -183,23 +177,10 @@
 	}
 
 	async function handleGeneratePreview() {
-		if (isGeneratingPreview) return;
-		isGeneratingPreview = true;
 		const previewUrl = await generatePreview(item.id);
-		isGeneratingPreview = false;
 		if (previewUrl) {
 			showPreview = true;
 		}
-	}
-
-	function applySuggestion() {
-		videos.updateSettings({
-			quality: suggestion.preset,
-			outputFormat: suggestion.format,
-			resolution: suggestion.resolution
-		});
-		videos.updateItem(item.id, { outputFormat: suggestion.format });
-		showSuggestion = false;
 	}
 </script>
 
@@ -214,60 +195,11 @@
 	<!-- Remove button -->
 	<button
 		onclick={handleRemove}
-		class="absolute -top-2 -right-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-surface-700 text-surface-400 opacity-0 shadow-lg transition-all hover:bg-red-500 hover:text-white group-hover:opacity-100"
+		class="absolute -top-2 -right-2 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-surface-700 text-surface-400 opacity-0 shadow-lg transition-all hover:bg-red-500 hover:text-white group-hover:opacity-100"
 		aria-label="Remove video"
 	>
-		<X class="h-4 w-4" />
+		<X class="h-3.5 w-3.5" />
 	</button>
-
-	<!-- Suggestion button (for pending items) -->
-	{#if item.status === 'pending' && item.bitrate}
-		<button
-			onclick={() => (showSuggestion = !showSuggestion)}
-			class="absolute -top-2 left-4 z-10 flex items-center gap-1.5 rounded-full bg-amber-500 px-2.5 py-1 text-xs font-medium text-white opacity-0 shadow-lg transition-all hover:bg-amber-600 group-hover:opacity-100"
-			aria-label="Smart suggestion"
-		>
-			<Lightbulb class="h-3.5 w-3.5" />
-			Suggestion
-		</button>
-	{/if}
-
-	<!-- Suggestion popup -->
-	{#if showSuggestion}
-		<div
-			class="absolute top-8 left-4 z-20 w-64 rounded-xl bg-surface-800 p-4 shadow-xl ring-1 ring-white/10"
-			in:scale={{ duration: 150, start: 0.95 }}
-			out:fade={{ duration: 100 }}
-		>
-			<div class="flex items-start gap-2 mb-3">
-				<Lightbulb class="h-5 w-5 text-amber-500 flex-shrink-0" />
-				<div>
-					<p class="text-sm font-medium text-surface-200">Recommended Settings</p>
-					<p class="text-xs text-surface-400 mt-1">{suggestion.note}</p>
-				</div>
-			</div>
-			<div class="space-y-2 text-sm">
-				<div class="flex justify-between">
-					<span class="text-surface-400">Quality:</span>
-					<span class="font-medium text-surface-200">{suggestion.preset}</span>
-				</div>
-				<div class="flex justify-between">
-					<span class="text-surface-400">Format:</span>
-					<span class="font-medium text-surface-200">{suggestion.format.toUpperCase()}</span>
-				</div>
-				<div class="flex justify-between">
-					<span class="text-surface-400">Resolution:</span>
-					<span class="font-medium text-surface-200">{suggestion.resolution}</span>
-				</div>
-			</div>
-			<button
-				onclick={applySuggestion}
-				class="mt-3 w-full rounded-lg bg-amber-500 py-2 text-sm font-medium text-white hover:bg-amber-600 transition-colors"
-			>
-				Apply Settings
-			</button>
-		</div>
-	{/if}
 
 	<!-- Thumbnail -->
 	<div class="relative w-full aspect-video overflow-hidden rounded-t-2xl bg-surface-800">
@@ -283,294 +215,251 @@
 			<div
 				class="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm"
 			>
-				<Loader2 class="h-10 w-10 text-white animate-spin mb-2" />
+				<Loader2 class="h-8 w-8 text-white animate-spin mb-2" />
 				<span class="text-white text-sm font-medium">{item.progress}%</span>
 				{#if item.progressStage}
-					<span class="text-white/70 text-xs mt-1">{item.progressStage}</span>
-				{/if}
-				{#if item.eta && item.eta > 0}
-					<div class="flex items-center gap-1.5 text-white/60 text-xs mt-2">
-						<Clock class="h-3 w-3" />
-						<span>~{formatETA(item.eta)} remaining</span>
-					</div>
+					<span class="text-white/60 text-xs mt-1">{item.progressStage}</span>
 				{/if}
 			</div>
 		{:else}
 			<!-- Play button overlay -->
 			<button
 				onclick={() => (showPreview = true)}
-				class="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 transition-opacity group-hover:opacity-100"
+				class="absolute inset-0 flex items-center justify-center bg-black/0 hover:bg-black/30 transition-colors"
 			>
 				<div
-					class="flex h-14 w-14 items-center justify-center rounded-full bg-white/90 shadow-lg"
+					class="flex h-12 w-12 items-center justify-center rounded-full bg-white/90 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
 				>
-					<Play class="h-6 w-6 text-surface-800 ml-1" fill="currentColor" />
+					<Play class="h-5 w-5 text-surface-800 ml-0.5" fill="currentColor" />
 				</div>
 			</button>
 		{/if}
 
-		<!-- Savings badge overlay -->
+		<!-- Status badge (top-right) -->
 		{#if item.status === 'completed'}
-			<div class="absolute top-3 right-3">
+			<div class="absolute top-2 right-2">
 				{#if isPositiveSavings}
-					<span
-						class="flex items-center gap-1.5 rounded-full bg-green-500 px-3 py-1.5 text-sm font-bold text-white shadow-lg"
-					>
-						<Check class="h-4 w-4" />
+					<span class="flex items-center gap-1 rounded-full bg-green-500 px-2 py-1 text-xs font-bold text-white shadow-lg">
+						<Check class="h-3 w-3" />
 						-{savings}%
 					</span>
 				{:else}
-					<span
-						class="rounded-full bg-amber-500 px-3 py-1.5 text-sm font-bold text-white shadow-lg"
-					>
+					<span class="rounded-full bg-amber-500 px-2 py-1 text-xs font-bold text-white shadow-lg">
 						+{Math.abs(savings)}%
 					</span>
 				{/if}
 			</div>
+		{:else if item.status === 'pending' && hasTrim}
+			<div class="absolute top-2 right-2">
+				<span class="flex items-center gap-1 rounded-full bg-purple-500/80 px-2 py-1 text-xs font-medium text-white shadow-lg">
+					<Scissors class="h-3 w-3" />
+					Trimmed
+				</span>
+			</div>
 		{/if}
 
-		<!-- Duration badge -->
+		<!-- Duration badge (bottom-left) -->
 		{#if item.duration}
-			<div
-				class="absolute bottom-3 left-3 rounded-md bg-black/70 px-2 py-1 text-xs font-medium text-white {hasTrim ? 'ring-1 ring-purple-500/50' : ''}"
-			>
+			<div class="absolute bottom-2 left-2 rounded bg-black/70 px-1.5 py-0.5 text-xs font-medium text-white">
 				{#if hasTrim}
 					<span class="text-purple-300">{formatDuration(effectiveDuration)}</span>
-					<span class="text-surface-400 mx-1">/</span>
-					<span class="text-surface-400">{formatDuration(item.duration)}</span>
 				{:else}
 					{formatDuration(item.duration)}
 				{/if}
 			</div>
 		{/if}
 
-		<!-- Drag indicator for completed items -->
-		{#if item.status === 'completed' && item.compressedBlob}
-			<div
-				class="absolute top-3 left-3 flex items-center gap-1.5 rounded-md bg-black/70 px-2 py-1 text-xs font-medium text-white opacity-0 transition-opacity group-hover:opacity-100"
-				title="Drag to save file"
-			>
-				<GripVertical class="h-3 w-3" />
-				<span>Drag to save</span>
+		<!-- Resolution badge (bottom-right) -->
+		{#if item.width && item.height}
+			<div class="absolute bottom-2 right-2 rounded bg-black/70 px-1.5 py-0.5 text-xs font-medium text-white">
+				{item.width}×{item.height}
 			</div>
 		{/if}
 
-		<!-- Resolution badge -->
-		{#if item.width && item.height}
+		<!-- Drag hint for completed items (top-left on hover) -->
+		{#if item.status === 'completed' && item.compressedBlob}
 			<div
-				class="absolute bottom-3 right-3 rounded-md bg-black/70 px-2 py-1 text-xs font-medium text-white"
+				class="absolute top-2 left-2 flex items-center gap-1 rounded bg-black/70 px-1.5 py-0.5 text-xs font-medium text-white opacity-0 group-hover:opacity-100 transition-opacity"
 			>
-				{item.width}×{item.height}
+				<GripVertical class="h-3 w-3" />
+				Drag to save
 			</div>
 		{/if}
 	</div>
 
 	<!-- Info section -->
-	<div class="p-4">
-		<!-- Filename + Size -->
-		<div class="flex items-center justify-between gap-3 mb-3">
-			<p class="truncate text-sm font-medium text-surface-100" title={item.name}>
+	<div class="p-3">
+		<!-- Filename row -->
+		<div class="flex items-center justify-between gap-2 mb-2">
+			<p class="truncate text-sm font-medium text-surface-200" title={item.name}>
 				{item.name}
 			</p>
-			{#if item.status === 'completed' && item.compressedSize}
-				<span class="flex-shrink-0 text-sm font-mono text-accent-start font-semibold">
+			<span class="flex-shrink-0 text-xs font-mono text-surface-400">
+				{#if item.status === 'completed' && item.compressedSize}
 					{formatBytes(item.compressedSize)}
-				</span>
-			{/if}
+				{:else if estimatedSize > 0}
+					~{formatBytes(estimatedSize)}
+				{/if}
+			</span>
 		</div>
 
-		<!-- Status / Progress -->
+		<!-- Status-specific content -->
 		{#if item.status === 'pending'}
-			<div class="space-y-2">
-				<!-- Estimated size and trim toggle -->
-				<div class="flex items-center justify-between">
-					<div class="flex items-center gap-2">
-						{#if estimatedSize > 0}
-							<span class="text-sm text-surface-400">
-								~{formatBytes(estimatedSize)}
-							</span>
-						{:else}
-							<span class="text-sm text-surface-500">Waiting...</span>
-						{/if}
-						{#if hasTrim}
-							<span class="rounded-full bg-purple-500/20 px-2 py-0.5 text-xs font-medium text-purple-400">
-								Trimmed
-							</span>
-						{/if}
-					</div>
-					{#if item.duration}
-						<button
-							onclick={() => (showTrimUI = !showTrimUI)}
-							class="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium transition-all {showTrimUI || hasTrim
-								? 'bg-purple-500/20 text-purple-400'
-								: 'text-surface-400 hover:bg-surface-700 hover:text-surface-200'}"
-							title="Trim video"
-						>
-							<Scissors class="h-3.5 w-3.5" />
-							Trim
-						</button>
-					{/if}
-				</div>
-
-				<!-- Trim UI -->
-				{#if showTrimUI && item.duration}
-					<div
-						class="rounded-lg bg-surface-800/50 p-3 space-y-2"
-						transition:fade={{ duration: 100 }}
+			<!-- Pending: Show trim option inline -->
+			<div class="flex items-center justify-between gap-2">
+				<span class="text-xs text-surface-500">
+					{item.format?.toUpperCase()} → {item.outputFormat.toUpperCase()}
+				</span>
+				{#if item.duration}
+					<button
+						onclick={() => (showTrimUI = !showTrimUI)}
+						class="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded transition-all {showTrimUI || hasTrim
+							? 'bg-purple-500/20 text-purple-400'
+							: 'text-surface-500 hover:text-surface-300 hover:bg-surface-700/50'}"
 					>
-						<div class="flex items-center gap-2">
-							<div class="flex-1">
-								<label for="trim-start-{item.id}" class="text-xs text-surface-500 block mb-1">Start</label>
-								<input
-									id="trim-start-{item.id}"
-									type="text"
-									class="w-full rounded bg-surface-700 px-2 py-1.5 text-sm text-surface-200 placeholder-surface-500 focus:ring-1 focus:ring-accent-start focus:outline-none"
-									placeholder="0:00"
-									bind:value={trimStartInput}
-									onblur={handleTrimUpdate}
-									onkeydown={(e) => e.key === 'Enter' && handleTrimUpdate()}
-								/>
-							</div>
-							<div class="flex-1">
-								<label for="trim-end-{item.id}" class="text-xs text-surface-500 block mb-1">End</label>
-								<input
-									id="trim-end-{item.id}"
-									type="text"
-									class="w-full rounded bg-surface-700 px-2 py-1.5 text-sm text-surface-200 placeholder-surface-500 focus:ring-1 focus:ring-accent-start focus:outline-none"
-									placeholder={formatTimeInput(item.duration)}
-									bind:value={trimEndInput}
-									onblur={handleTrimUpdate}
-									onkeydown={(e) => e.key === 'Enter' && handleTrimUpdate()}
-								/>
-							</div>
-						</div>
-						<div class="flex items-center justify-between text-xs">
-							<span class="text-surface-500">
-								Duration: {formatDuration(effectiveDuration)}
-							</span>
-							{#if hasTrim}
-								<button
-									onclick={clearTrim}
-									class="text-red-400 hover:text-red-300"
-								>
-									Clear trim
-								</button>
-							{/if}
-						</div>
-					</div>
+						<Scissors class="h-3 w-3" />
+						{hasTrim ? formatDuration(effectiveDuration) : 'Trim'}
+					</button>
 				{/if}
 			</div>
+
+			<!-- Trim UI (expandable) -->
+			{#if showTrimUI && item.duration}
+				<div class="mt-2 rounded-lg bg-surface-800/50 p-2.5" transition:slide={{ duration: 150 }}>
+					<div class="flex items-center gap-2">
+						<input
+							id="trim-start-{item.id}"
+							type="text"
+							class="flex-1 rounded bg-surface-700 px-2 py-1 text-xs text-surface-200 placeholder-surface-500 focus:ring-1 focus:ring-purple-500 focus:outline-none text-center"
+							placeholder="0:00"
+							bind:value={trimStartInput}
+							onblur={handleTrimUpdate}
+							onkeydown={(e) => e.key === 'Enter' && handleTrimUpdate()}
+							aria-label="Start time"
+						/>
+						<span class="text-surface-500 text-xs">to</span>
+						<input
+							id="trim-end-{item.id}"
+							type="text"
+							class="flex-1 rounded bg-surface-700 px-2 py-1 text-xs text-surface-200 placeholder-surface-500 focus:ring-1 focus:ring-purple-500 focus:outline-none text-center"
+							placeholder={formatTimeInput(item.duration)}
+							bind:value={trimEndInput}
+							onblur={handleTrimUpdate}
+							onkeydown={(e) => e.key === 'Enter' && handleTrimUpdate()}
+							aria-label="End time"
+						/>
+						{#if hasTrim}
+							<button
+								onclick={clearTrim}
+								class="p-1 text-surface-500 hover:text-red-400 transition-colors"
+								aria-label="Clear trim"
+							>
+								<X class="h-3.5 w-3.5" />
+							</button>
+						{/if}
+					</div>
+				</div>
+			{/if}
+
 		{:else if item.status === 'processing'}
-			<div class="h-2 w-full overflow-hidden rounded-full bg-surface-700">
+			<div class="h-1.5 w-full overflow-hidden rounded-full bg-surface-700">
 				<div
 					class="h-full rounded-full bg-gradient-to-r from-accent-start to-accent-end transition-all duration-300"
 					style="width: {item.progress}%"
 				></div>
 			</div>
+
 		{:else if item.status === 'error'}
 			<div class="flex items-center justify-between">
-				<div class="flex items-center gap-2 text-sm text-red-500">
-					<AlertCircle class="h-4 w-4" />
-					<span>Failed</span>
-				</div>
+				<span class="flex items-center gap-1.5 text-xs text-red-400">
+					<AlertCircle class="h-3.5 w-3.5" />
+					Failed
+				</span>
 				<button
 					onclick={handleRetry}
-					class="flex items-center gap-1.5 rounded-lg bg-red-900/30 px-3 py-1.5 text-sm font-medium text-red-400 hover:bg-red-900/50"
+					class="flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-400 hover:text-red-300 transition-colors"
 				>
-					<RotateCcw class="h-4 w-4" />
+					<RotateCcw class="h-3 w-3" />
 					Retry
 				</button>
 			</div>
+
 		{:else if item.status === 'completed'}
-			<!-- Format + Actions row -->
+			<!-- Completed: Format selector + actions -->
 			<div class="flex items-center justify-between">
-				<!-- Format selector -->
-				<div class="flex items-center gap-2">
-					<span class="text-xs font-medium uppercase text-surface-400">
-						{item.format}
-					</span>
-					<ArrowRight class="h-3.5 w-3.5 text-surface-400" />
+				<div class="flex items-center gap-1.5">
+					<span class="text-xs text-surface-500">{item.format}</span>
+					<ArrowRight class="h-3 w-3 text-surface-600" />
 					<!-- Format dropdown -->
 					<div class="relative">
 						<button
 							onclick={() => (showFormatMenu = !showFormatMenu)}
-							class="flex items-center gap-1.5 rounded-lg bg-gradient-to-r {getCurrentFormatColor()} px-2.5 py-1 text-xs font-bold uppercase text-white transition-all hover:opacity-90"
+							class="flex items-center gap-1 rounded bg-gradient-to-r {getCurrentFormatColor()} px-2 py-0.5 text-xs font-bold uppercase text-white transition-all hover:opacity-90"
 						>
 							{item.outputFormat === 'av1' ? 'AV1' : item.outputFormat}
-							<ChevronDown class="h-3.5 w-3.5" />
+							<ChevronDown class="h-3 w-3" />
 						</button>
 
 						{#if showFormatMenu}
 							<button
-								class="fixed inset-0 z-40 cursor-default"
+								class="fixed inset-0 z-40"
 								onclick={() => (showFormatMenu = false)}
-								aria-label="Close menu"
+								aria-label="Close"
 							></button>
 							<div
-								class="absolute left-0 bottom-full z-50 mb-2 min-w-[120px] overflow-hidden rounded-xl bg-surface-800 shadow-xl ring-1 ring-white/10"
-								in:scale={{ duration: 150, start: 0.95 }}
-								out:fade={{ duration: 100 }}
+								class="absolute left-0 bottom-full z-50 mb-1 min-w-[100px] overflow-hidden rounded-lg bg-surface-800 shadow-xl ring-1 ring-white/10"
+								transition:scale={{ duration: 100, start: 0.95 }}
 							>
 								{#each availableFormats as format}
 									<button
 										onclick={() => handleFormatChange(format.value)}
-										class="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm transition-colors hover:bg-surface-700 {item.outputFormat ===
-										format.value
-											? 'bg-surface-700/50'
-											: ''}"
+										class="flex w-full items-center gap-2 px-3 py-2 text-xs transition-colors hover:bg-surface-700 {item.outputFormat === format.value ? 'bg-surface-700/50' : ''}"
 									>
-										<span class="h-2.5 w-2.5 rounded-full bg-gradient-to-r {format.color}"
-										></span>
+										<span class="h-2 w-2 rounded-full bg-gradient-to-r {format.color}"></span>
 										<span class="font-medium text-surface-300">{format.label}</span>
 									</button>
 								{/each}
 							</div>
 						{/if}
 					</div>
-				</div>
 
-				<!-- Action buttons -->
-				<div class="flex items-center gap-2">
-					<!-- Compare button -->
-					{#if item.compressedUrl}
-						<button
-							onclick={() => (showComparison = true)}
-							class="flex h-9 w-9 items-center justify-center rounded-lg bg-surface-700 text-surface-400 transition-all hover:bg-surface-600 hover:text-surface-200"
-							aria-label="Compare original and compressed"
-							title="Compare"
-						>
-							<SplitSquareHorizontal class="h-4 w-4" />
-						</button>
-					{/if}
-
-					<!-- Download button -->
-					<button
-						onclick={handleDownload}
-						class="flex h-9 items-center gap-2 rounded-lg bg-gradient-to-r from-accent-start to-accent-end px-3 text-sm font-medium text-white transition-all hover:opacity-90 hover:shadow-md"
-						aria-label="Download"
-					>
-						<Download class="h-4 w-4" />
-					</button>
-				</div>
-			</div>
-
-			<!-- Compression stats -->
-			{#if item.compressionDuration}
-				<div class="mt-2 flex items-center gap-2 text-xs text-surface-500">
+					<!-- Encoder badge -->
 					{#if item.encoderUsed === 'webcodecs'}
-						<span class="inline-flex items-center gap-1 rounded-full bg-purple-500/20 px-2 py-0.5 text-purple-400">
-							<Gpu class="h-3 w-3" />
+						<span class="inline-flex items-center gap-0.5 rounded bg-purple-500/20 px-1.5 py-0.5 text-[10px] font-medium text-purple-400">
+							<Gpu class="h-2.5 w-2.5" />
 							GPU
 						</span>
 					{:else if item.encoderUsed === 'ffmpeg'}
-						<span class="inline-flex items-center gap-1 rounded-full bg-orange-500/20 px-2 py-0.5 text-orange-400">
-							<Server class="h-3 w-3" />
-							Software
+						<span class="inline-flex items-center gap-0.5 rounded bg-orange-500/20 px-1.5 py-0.5 text-[10px] font-medium text-orange-400">
+							<Server class="h-2.5 w-2.5" />
+							CPU
 						</span>
 					{/if}
-					<span>{(item.compressionDuration / 1000).toFixed(1)}s</span>
+
+					{#if item.compressionDuration}
+						<span class="text-[10px] text-surface-500">{(item.compressionDuration / 1000).toFixed(1)}s</span>
+					{/if}
 				</div>
-			{/if}
+
+				<!-- Action buttons -->
+				<div class="flex items-center gap-1">
+					{#if item.compressedUrl}
+						<button
+							onclick={() => (showComparison = true)}
+							class="flex h-7 w-7 items-center justify-center rounded text-surface-400 transition-all hover:bg-surface-700 hover:text-surface-200"
+							title="Compare"
+						>
+							<SplitSquareHorizontal class="h-3.5 w-3.5" />
+						</button>
+					{/if}
+					<button
+						onclick={handleDownload}
+						class="flex h-7 items-center gap-1.5 rounded bg-gradient-to-r from-accent-start to-accent-end px-2.5 text-xs font-medium text-white transition-all hover:opacity-90"
+					>
+						<Download class="h-3.5 w-3.5" />
+					</button>
+				</div>
+			</div>
 		{/if}
 	</div>
 </div>

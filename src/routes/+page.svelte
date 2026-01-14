@@ -83,8 +83,8 @@
 			e.preventDefault();
 			const newItems = await videos.addFiles(videoFiles);
 			if (newItems.length > 0) {
-				await processVideos(newItems.map((i) => i.id));
-				showNotification(`Pasted ${newItems.length} video(s) from clipboard`, 'success');
+				// Don't auto-compress - let user set trim/settings first
+				showNotification(`Added ${newItems.length} video(s) — click Compress when ready`, 'success');
 			}
 		}
 	}
