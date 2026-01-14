@@ -30,10 +30,15 @@
 	let trimStartInput = $state('');
 	let trimEndInput = $state('');
 	
-	// Check AV1 availability from cached capabilities
+	// Check codec availability from cached capabilities
 	const av1Available = $derived(() => {
 		const caps = getCapabilitiesSync();
 		return caps?.supportedVideoCodecs.includes('av1') ?? false;
+	});
+	
+	const hevcAvailable = $derived(() => {
+		const caps = getCapabilitiesSync();
+		return caps?.supportedVideoCodecs.includes('hevc') ?? false;
 	});
 
 	const savings = $derived(
@@ -64,6 +69,7 @@
 	const availableFormats: { value: OutputFormat; label: string; color: string }[] = [
 		{ value: 'mp4', label: 'MP4', color: 'from-orange-500 to-red-500' },
 		{ value: 'webm', label: 'WebM', color: 'from-green-500 to-emerald-500' },
+		{ value: 'hevc', label: 'HEVC', color: 'from-blue-500 to-cyan-500' },
 		{ value: 'av1', label: 'AV1', color: 'from-purple-500 to-pink-500' }
 	];
 
@@ -415,18 +421,20 @@
 								transition:scale={{ duration: 100, start: 0.95 }}
 							>
 								{#each availableFormats as format}
-									{@const isAv1Disabled = format.value === 'av1' && !av1Available()}
+									{@const isDisabled = (format.value === 'av1' && !av1Available()) || (format.value === 'hevc' && !hevcAvailable())}
+									{@const isHardwareCodec = format.value === 'av1' || format.value === 'hevc'}
+									{@const isAvailable = (format.value === 'av1' && av1Available()) || (format.value === 'hevc' && hevcAvailable())}
 									<button
-										onclick={() => !isAv1Disabled && handleFormatChange(format.value)}
-										disabled={isAv1Disabled}
-										class="flex w-full items-center gap-2 px-3 py-2 text-xs transition-colors {isAv1Disabled 
+										onclick={() => !isDisabled && handleFormatChange(format.value)}
+										disabled={isDisabled}
+										class="flex w-full items-center gap-2 px-3 py-2 text-xs transition-colors {isDisabled 
 											? 'opacity-50 cursor-not-allowed' 
 											: 'hover:bg-surface-700'} {item.outputFormat === format.value ? 'bg-surface-700/50' : ''}"
-										title={isAv1Disabled ? 'AV1 requires hardware encoder support' : ''}
+										title={isDisabled ? `${format.label} requires hardware encoder support` : ''}
 									>
 										<span class="h-2 w-2 rounded-full bg-gradient-to-r {format.color}"></span>
 										<span class="font-medium text-surface-300">{format.label}</span>
-										{#if format.value === 'av1' && av1Available()}
+										{#if isHardwareCodec && isAvailable}
 											<span class="ml-auto text-[9px] text-purple-400">GPU</span>
 										{/if}
 									</button>

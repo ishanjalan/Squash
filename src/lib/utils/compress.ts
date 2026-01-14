@@ -191,8 +191,8 @@ async function compressWithWebCodecs(
 		'320k': 320000
 	};
 
-	// Determine actual output format for container (AV1 uses MP4 container)
-	const containerFormat = outputFormat === 'av1' ? 'mp4' : outputFormat;
+	// Determine actual output format for container (AV1 and HEVC use MP4 container)
+	const containerFormat = (outputFormat === 'av1' || outputFormat === 'hevc') ? 'mp4' : outputFormat;
 
 	const blob = await encodeWithWebCodecs(
 		item.file,
@@ -230,8 +230,8 @@ async function compressWithWebCodecs(
 }
 
 export function getOutputExtension(format: OutputFormat): string {
-	// AV1 uses MP4 container
-	return format === 'av1' ? '.mp4' : `.${format}`;
+	// AV1 and HEVC use MP4 container
+	return (format === 'av1' || format === 'hevc') ? '.mp4' : `.${format}`;
 }
 
 export function getOutputFilename(originalName: string, format: OutputFormat): string {

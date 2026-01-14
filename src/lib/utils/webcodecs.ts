@@ -415,7 +415,7 @@ export async function isEncodingSupported(
 }
 
 // Get recommended codec for output format
-export function getRecommendedCodecs(outputFormat: 'mp4' | 'webm' | 'av1'): {
+export function getRecommendedCodecs(outputFormat: 'mp4' | 'webm' | 'av1' | 'hevc'): {
 	video: WebCodecsVideoCodec;
 	audio: WebCodecsAudioCodec;
 } {
@@ -424,6 +424,9 @@ export function getRecommendedCodecs(outputFormat: 'mp4' | 'webm' | 'av1'): {
 	}
 	if (outputFormat === 'av1') {
 		return { video: 'av1', audio: 'aac' }; // AV1 in MP4 container
+	}
+	if (outputFormat === 'hevc') {
+		return { video: 'hevc', audio: 'aac' }; // HEVC/H.265 in MP4 container
 	}
 	return { video: 'avc', audio: 'aac' };
 }

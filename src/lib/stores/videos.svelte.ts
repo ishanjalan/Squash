@@ -1,5 +1,5 @@
 export type VideoFormat = 'mp4' | 'webm' | 'mov' | 'avi' | 'mkv';
-export type OutputFormat = 'mp4' | 'webm' | 'av1';
+export type OutputFormat = 'mp4' | 'webm' | 'av1' | 'hevc';
 export type VideoStatus = 'pending' | 'processing' | 'completed' | 'error';
 export type Resolution = 'original' | '2160p' | '1440p' | '1080p' | '720p' | '480p' | '360p';
 export type AudioCodec = 'aac' | 'opus' | 'mp3' | 'copy' | 'none';

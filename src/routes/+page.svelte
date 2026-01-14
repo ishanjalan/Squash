@@ -202,7 +202,7 @@
 		{
 			icon: Gauge,
 			title: 'Pro Codecs',
-			description: 'H.264, VP9, AV1 (where supported), AAC, Opus'
+			description: 'H.264, H.265/HEVC, VP9, AV1, AAC, Opus'
 		},
 		{
 			icon: Layers,
