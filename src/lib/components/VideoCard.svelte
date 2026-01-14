@@ -185,7 +185,7 @@
 </script>
 
 <div
-	class="glass group relative rounded-2xl transition-all duration-300 hover:shadow-xl hover:shadow-black/20"
+	class="glass group relative rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-xl hover:shadow-black/20"
 	in:scale={{ duration: 200, start: 0.95 }}
 	out:fade={{ duration: 150 }}
 	draggable={item.status === 'completed' && !!item.compressedBlob}
@@ -325,39 +325,37 @@
 
 			<!-- Trim UI (expandable) -->
 			{#if showTrimUI && item.duration}
-				<div class="mt-2 rounded-lg bg-surface-800/50 p-2.5" transition:slide={{ duration: 150 }}>
-					<div class="flex items-center gap-2">
-						<input
-							id="trim-start-{item.id}"
-							type="text"
-							class="flex-1 rounded bg-surface-700 px-2 py-1 text-xs text-surface-200 placeholder-surface-500 focus:ring-1 focus:ring-purple-500 focus:outline-none text-center"
-							placeholder="0:00"
-							bind:value={trimStartInput}
-							onblur={handleTrimUpdate}
-							onkeydown={(e) => e.key === 'Enter' && handleTrimUpdate()}
-							aria-label="Start time"
-						/>
-						<span class="text-surface-500 text-xs">to</span>
-						<input
-							id="trim-end-{item.id}"
-							type="text"
-							class="flex-1 rounded bg-surface-700 px-2 py-1 text-xs text-surface-200 placeholder-surface-500 focus:ring-1 focus:ring-purple-500 focus:outline-none text-center"
-							placeholder={formatTimeInput(item.duration)}
-							bind:value={trimEndInput}
-							onblur={handleTrimUpdate}
-							onkeydown={(e) => e.key === 'Enter' && handleTrimUpdate()}
-							aria-label="End time"
-						/>
-						{#if hasTrim}
-							<button
-								onclick={clearTrim}
-								class="p-1 text-surface-500 hover:text-red-400 transition-colors"
-								aria-label="Clear trim"
-							>
-								<X class="h-3.5 w-3.5" />
-							</button>
-						{/if}
-					</div>
+				<div class="mt-2 flex items-center gap-1.5" transition:slide={{ duration: 150 }}>
+					<input
+						id="trim-start-{item.id}"
+						type="text"
+						class="w-14 rounded bg-surface-700/80 px-1.5 py-1 text-[11px] text-surface-200 placeholder-surface-500 focus:ring-1 focus:ring-purple-500/50 focus:outline-none text-center font-mono"
+						placeholder="0:00"
+						bind:value={trimStartInput}
+						onblur={handleTrimUpdate}
+						onkeydown={(e) => e.key === 'Enter' && handleTrimUpdate()}
+						aria-label="Start time"
+					/>
+					<span class="text-surface-600 text-[10px]">→</span>
+					<input
+						id="trim-end-{item.id}"
+						type="text"
+						class="w-14 rounded bg-surface-700/80 px-1.5 py-1 text-[11px] text-surface-200 placeholder-surface-500 focus:ring-1 focus:ring-purple-500/50 focus:outline-none text-center font-mono"
+						placeholder={formatTimeInput(item.duration)}
+						bind:value={trimEndInput}
+						onblur={handleTrimUpdate}
+						onkeydown={(e) => e.key === 'Enter' && handleTrimUpdate()}
+						aria-label="End time"
+					/>
+					{#if hasTrim}
+						<button
+							onclick={clearTrim}
+							class="p-0.5 text-surface-500 hover:text-red-400 transition-colors"
+							aria-label="Clear trim"
+						>
+							<X class="h-3 w-3" />
+						</button>
+					{/if}
 				</div>
 			{/if}
 
