@@ -9,15 +9,17 @@
 	import PerformanceMonitor from '$lib/components/PerformanceMonitor.svelte';
 	import Toast, { toast } from '$lib/components/Toast.svelte';
 	import { videos, QUALITY_PRESETS } from '$lib/stores/videos.svelte';
-	import { Download, Trash2, Film, Zap, Shield, Gauge, ArrowDown, Keyboard, Activity, Clipboard, Cpu, Layers } from 'lucide-svelte';
+	import { Download, Trash2, Film, Zap, Shield, Gauge, ArrowDown, Keyboard, Activity, Clipboard, Cpu, Layers, AlertTriangle } from 'lucide-svelte';
 	import { downloadAllAsZip } from '$lib/utils/download';
-	import { processVideos, preloadFFmpeg } from '$lib/utils/compress';
+	import { processVideos, preloadEncoder, checkBrowserSupport, initWebCodecs } from '$lib/utils/compress';
 	import { fade, fly } from 'svelte/transition';
 	import { onMount } from 'svelte';
 
 	let showClearConfirm = $state(false);
 	let showShortcuts = $state(false);
 	let showPerformance = $state(false);
+	let browserSupported = $state(true);
+	let browserError = $state('');
 
 	const hasVideos = $derived(videos.items.length > 0);
 	const completedCount = $derived(videos.items.filter((i) => i.status === 'completed').length);
@@ -167,16 +169,23 @@
 		}
 	}
 
-	// Preload FFmpeg on mount
+	// Check browser support and preload encoder on mount
 	onMount(() => {
-		// Preload FFmpeg after a short delay to not block initial render
+		// Check browser compatibility
+		const support = checkBrowserSupport();
+		if (!support.supported) {
+			browserSupported = false;
+			browserError = support.reason || 'WebCodecs not supported';
+		}
+
+		// Preload WebCodecs capabilities after a short delay
 		setTimeout(() => {
-			preloadFFmpeg().then((loaded) => {
+			preloadEncoder().then((loaded) => {
 				if (loaded) {
-					console.log('FFmpeg preloaded successfully');
+					console.log('WebCodecs encoder ready');
 				}
 			});
-		}, 1000);
+		}, 500);
 	});
 
 	const features = [
@@ -193,12 +202,12 @@
 		{
 			icon: Gauge,
 			title: 'Pro Codecs',
-			description: 'H.264, VP9, AV1, AAC, Opus via Mediabunny + FFmpeg'
+			description: 'H.264, VP9, AV1 (where supported), AAC, Opus'
 		},
 		{
 			icon: Layers,
-			title: 'Hybrid Architecture',
-			description: 'Smart fallback from GPU to CPU encoding'
+			title: 'Pure WebCodecs',
+			description: 'Powered by Mediabunny — tiny bundle, instant start'
 		}
 	];
 </script>
@@ -220,6 +229,22 @@
 
 	<main class="flex-1 px-4 sm:px-6 lg:px-8 pt-24 sm:pt-28 pb-8 sm:pb-12">
 		<div class="mx-auto max-w-7xl">
+			<!-- Browser Compatibility Warning -->
+			{#if !browserSupported}
+				<div
+					class="mb-6 flex items-center gap-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 p-4 sm:p-5"
+					in:fade={{ duration: 200 }}
+				>
+					<AlertTriangle class="h-6 w-6 text-amber-500 flex-shrink-0" />
+					<div>
+						<h3 class="font-semibold text-amber-400">Browser Not Supported</h3>
+						<p class="text-sm text-amber-300/80 mt-1">
+							{browserError} Please use <strong>Chrome</strong>, <strong>Edge</strong>, or <strong>Safari 16.4+</strong> for the best experience.
+						</p>
+					</div>
+				</div>
+			{/if}
+
 			<!-- Hero Section -->
 			{#if !hasVideos}
 				<div class="mb-8 sm:mb-12 text-center" in:fade={{ duration: 300 }}>
@@ -236,7 +261,7 @@
 				</h1>
 				<p class="mx-auto max-w-2xl text-base sm:text-lg text-surface-500 leading-relaxed">
 					GPU-accelerated video compression powered by
-					<a href="https://mediabunny.dev" target="_blank" rel="noopener" class="text-accent-start hover:underline">Mediabunny</a> + FFmpeg.
+					<a href="https://mediabunny.dev" target="_blank" rel="noopener" class="text-accent-start hover:underline">Mediabunny</a> + WebCodecs.
 					<span class="font-medium text-surface-300">100% private</span>
 					— everything runs locally in your browser.
 				</p>

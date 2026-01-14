@@ -4,24 +4,15 @@ import {
 	type VideoItem,
 	type OutputFormat,
 	estimateCompressionTime,
-	calculateBitrateForSize,
-	getEffectiveDuration
+	calculateBitrateForSize
 } from '$lib/stores/videos.svelte';
 import {
 	isWebCodecsSupported,
 	getWebCodecsCapabilities,
 	encodeWithWebCodecs,
-	isEncodingSupported,
 	getRecommendedCodecs,
-	type WebCodecsCapabilities,
-	type WebCodecsVideoCodec,
-	type WebCodecsAudioCodec
+	type WebCodecsCapabilities
 } from './webcodecs';
-
-// Worker instance (for FFmpeg fallback)
-let worker: Worker | null = null;
-let workerReady = false;
-let workerLoading = false;
 
 // WebCodecs capabilities cache
 let webCodecsCapabilities: WebCodecsCapabilities | null = null;
@@ -29,18 +20,6 @@ let webCodecsCapabilities: WebCodecsCapabilities | null = null;
 // Processing queue
 let isProcessing = false;
 const queue: string[] = [];
-
-// Pending callbacks for worker responses
-const pendingCallbacks = new Map<
-	string,
-	{
-		resolve: (value: unknown) => void;
-		reject: (reason: unknown) => void;
-	}
->();
-
-// Encoder type for tracking
-export type EncoderType = 'webcodecs' | 'ffmpeg';
 
 // Initialize and cache WebCodecs capabilities
 export async function initWebCodecs(): Promise<WebCodecsCapabilities> {
@@ -51,165 +30,26 @@ export async function initWebCodecs(): Promise<WebCodecsCapabilities> {
 	return webCodecsCapabilities;
 }
 
-// Determine the best encoder for the given video and settings
-export async function selectEncoder(
-	video: VideoItem,
-	outputFormat: OutputFormat
-): Promise<{ encoder: EncoderType; reason: string }> {
-	// Check WebCodecs support
-	const capabilities = await initWebCodecs();
-
-	if (!capabilities.supported) {
-		return { encoder: 'ffmpeg', reason: 'WebCodecs not supported in this browser' };
-	}
-
-	// Map output format to WebCodecs codecs
-	const webCodecsFormat = outputFormat === 'mp4' ? 'mp4' : 'webm';
-	const { video: videoCodec, audio: audioCodec } = getRecommendedCodecs(webCodecsFormat);
-
-	// Check if the specific codec is supported
-	if (!capabilities.supportedVideoCodecs.includes(videoCodec)) {
-		return { encoder: 'ffmpeg', reason: `${videoCodec.toUpperCase()} codec not supported` };
-	}
-
-	// Check resolution support
-	const targetWidth = video.width || 1920;
-	const targetHeight = video.height || 1080;
-
-	if (
-		targetWidth > capabilities.maxResolution.width ||
-		targetHeight > capabilities.maxResolution.height
-	) {
-		return { encoder: 'ffmpeg', reason: 'Resolution exceeds WebCodecs limits' };
-	}
-
-	// Check if the full encoding configuration is supported
-	const isSupported = await isEncodingSupported(
-		videoCodec,
-		audioCodec,
-		targetWidth,
-		targetHeight
-	);
-
-	if (!isSupported) {
-		return { encoder: 'ffmpeg', reason: 'Encoding configuration not supported' };
-	}
-
-	// WebCodecs is supported!
-	const accelNote = capabilities.hardwareAcceleration ? ' (GPU accelerated)' : '';
-	return { encoder: 'webcodecs', reason: `Hardware encoding available${accelNote}` };
+// Get cached capabilities (sync)
+export function getCapabilitiesSync(): WebCodecsCapabilities | null {
+	return webCodecsCapabilities;
 }
 
-// Initialize FFmpeg worker
-async function initWorker(): Promise<Worker> {
-	if (worker && workerReady) return worker;
-
-	if (workerLoading) {
-		// Wait for existing load
-		while (workerLoading) {
-			await new Promise((resolve) => setTimeout(resolve, 100));
-		}
-		if (worker && workerReady) return worker;
+// Check if browser supports WebCodecs
+export function checkBrowserSupport(): { supported: boolean; reason?: string } {
+	if (!isWebCodecsSupported()) {
+		return {
+			supported: false,
+			reason: 'Your browser does not support WebCodecs. Please use Chrome, Edge, or Safari 16.4+.'
+		};
 	}
+	return { supported: true };
+}
 
-	workerLoading = true;
-	videos.setFFmpegLoading(true);
-
-	return new Promise((resolve, reject) => {
-		try {
-			// Create worker
-			worker = new Worker(new URL('../workers/ffmpeg.worker.ts', import.meta.url), {
-				type: 'module'
-			});
-
-			// Handle worker messages
-			worker.onmessage = (e) => {
-				const { type, id, ...data } = e.data;
-
-				switch (type) {
-					case 'load-progress':
-						console.log(`FFmpeg loading: ${data.progress}%`);
-						break;
-
-					case 'loaded':
-						if (data.success) {
-							workerReady = true;
-							workerLoading = false;
-							videos.setFFmpegLoaded(true, data.multiThreaded);
-							console.log(
-								`FFmpeg loaded (${data.multiThreaded ? 'multi-threaded' : 'single-threaded'})`
-							);
-							resolve(worker!);
-						} else {
-							workerLoading = false;
-							videos.setFFmpegLoading(false);
-							reject(new Error(data.error));
-						}
-						break;
-
-					case 'progress':
-						videos.updateItem(id, {
-							progress: data.progress,
-							progressStage: data.stage,
-							eta: data.eta
-						});
-						break;
-
-					case 'complete':
-						{
-							const callback = pendingCallbacks.get(id);
-							if (callback) {
-								callback.resolve(data);
-								pendingCallbacks.delete(id);
-							}
-						}
-						break;
-
-					case 'preview-complete':
-						{
-							const previewCallback = pendingCallbacks.get(`preview_${id}`);
-							if (previewCallback) {
-								previewCallback.resolve(data);
-								pendingCallbacks.delete(`preview_${id}`);
-							}
-						}
-						break;
-
-					case 'error':
-						{
-							const errorCallback = pendingCallbacks.get(id);
-							if (errorCallback) {
-								errorCallback.reject(new Error(data.error));
-								pendingCallbacks.delete(id);
-							}
-							const previewErrorCallback = pendingCallbacks.get(`preview_${id}`);
-							if (previewErrorCallback) {
-								previewErrorCallback.reject(new Error(data.error));
-								pendingCallbacks.delete(`preview_${id}`);
-							}
-						}
-						break;
-				}
-			};
-
-			worker.onerror = (error) => {
-				workerLoading = false;
-				videos.setFFmpegLoading(false);
-				reject(error);
-			};
-
-			// Request FFmpeg load with multi-thread support detection
-			const useMultiThread = typeof SharedArrayBuffer !== 'undefined';
-			worker.postMessage({
-				type: 'load',
-				payload: { useMultiThread }
-			});
-		} catch (error) {
-			workerLoading = false;
-			videos.setFFmpegLoading(false);
-			reject(error);
-		}
-	});
+// Check if a specific codec is available
+export async function isCodecAvailable(codec: 'avc' | 'vp9' | 'av1' | 'hevc'): Promise<boolean> {
+	const capabilities = await initWebCodecs();
+	return capabilities.supportedVideoCodecs.includes(codec);
 }
 
 // Process videos
@@ -229,7 +69,20 @@ async function processQueue() {
 	isProcessing = true;
 
 	// Initialize WebCodecs capabilities early
-	await initWebCodecs();
+	const capabilities = await initWebCodecs();
+
+	if (!capabilities.supported) {
+		// Mark all queued videos as error
+		while (queue.length > 0) {
+			const id = queue.shift()!;
+			videos.updateItem(id, {
+				status: 'error',
+				error: 'WebCodecs not supported in this browser. Please use Chrome, Edge, or Safari 16.4+.'
+			});
+		}
+		isProcessing = false;
+		return;
+	}
 
 	// Process videos sequentially
 	while (queue.length > 0) {
@@ -248,44 +101,37 @@ async function compressVideo(item: VideoItem) {
 		videos.updateItem(item.id, {
 			status: 'processing',
 			progress: 0,
-			progressStage: 'Analyzing...',
+			progressStage: 'Initializing hardware encoder...',
 			eta: estimateCompressionTime(item, videos.settings)
 		});
 
-		// Determine which encoder to use
-		const { encoder, reason } = await selectEncoder(item, item.outputFormat);
+		const capabilities = await initWebCodecs();
 		
-		console.log(`Using ${encoder} for ${item.name}: ${reason}`);
-		videos.updateItem(item.id, {
-			progressStage: `Using ${encoder === 'webcodecs' ? 'Hardware' : 'Software'} encoder...`
-		});
-
-		let compressedBlob: Blob;
-		let compressionDuration: number;
-
-		if (encoder === 'webcodecs') {
-			// Use WebCodecs (hardware acceleration)
-			const result = await compressWithWebCodecs(item);
-			compressedBlob = result.blob;
-			compressionDuration = result.duration;
-		} else {
-			// Use FFmpeg (software encoding)
-			const result = await compressWithFFmpeg(item);
-			compressedBlob = result.blob;
-			compressionDuration = result.duration;
+		// Check if the required codec is supported
+		const outputFormat = item.outputFormat;
+		const { video: videoCodec } = getRecommendedCodecs(outputFormat);
+		
+		if (!capabilities.supportedVideoCodecs.includes(videoCodec)) {
+			throw new Error(`${videoCodec.toUpperCase()} codec not supported by your hardware. Try a different output format.`);
 		}
 
-		const compressedUrl = URL.createObjectURL(compressedBlob);
+		const accelNote = capabilities.hardwareAcceleration ? ' (GPU)' : '';
+		videos.updateItem(item.id, {
+			progressStage: `Encoding with ${videoCodec.toUpperCase()}${accelNote}...`
+		});
+
+		const result = await compressWithWebCodecs(item);
+
+		const compressedUrl = URL.createObjectURL(result.blob);
 
 		videos.updateItem(item.id, {
 			status: 'completed',
 			progress: 100,
 			progressStage: 'Complete',
-			compressedSize: compressedBlob.size,
+			compressedSize: result.blob.size,
 			compressedUrl,
-			compressedBlob,
-			compressionDuration,
-			encoderUsed: encoder,
+			compressedBlob: result.blob,
+			compressionDuration: result.duration,
 			eta: undefined
 		});
 	} catch (error) {
@@ -299,7 +145,7 @@ async function compressVideo(item: VideoItem) {
 	}
 }
 
-// Compress using WebCodecs (hardware acceleration)
+// Compress using WebCodecs (hardware acceleration via Mediabunny)
 async function compressWithWebCodecs(
 	item: VideoItem
 ): Promise<{ blob: Blob; duration: number }> {
@@ -307,7 +153,7 @@ async function compressWithWebCodecs(
 	const quality = videos.settings.quality;
 	const outputFormat = item.outputFormat;
 
-	// Map quality to bitrate (fallback for numeric bitrate)
+	// Map quality to bitrate
 	const bitrateMap: Record<string, number> = {
 		tiny: 500_000,
 		web: 1_500_000,
@@ -334,7 +180,7 @@ async function compressWithWebCodecs(
 	};
 
 	const resolution = resolutionMap[videos.settings.resolution] || resolutionMap['original'];
-	const { video: videoCodec, audio: audioCodec } = getRecommendedCodecs(outputFormat as 'mp4' | 'webm');
+	const { video: videoCodec, audio: audioCodec } = getRecommendedCodecs(outputFormat);
 
 	// Audio bitrate mapping
 	const audioBitrateMap: Record<string, number> = {
@@ -344,6 +190,9 @@ async function compressWithWebCodecs(
 		'256k': 256000,
 		'320k': 320000
 	};
+
+	// Determine actual output format for container (AV1 uses MP4 container)
+	const containerFormat = outputFormat === 'av1' ? 'mp4' : outputFormat;
 
 	const blob = await encodeWithWebCodecs(
 		item.file,
@@ -357,13 +206,12 @@ async function compressWithWebCodecs(
 			audioBitrate: audioBitrateMap[videos.settings.audioBitrate] || 128000,
 			sampleRate: 48000,
 			channels: 2,
-			// Trim settings
 			trimStart: item.trimStart,
 			trimEnd: item.trimEnd
 		},
-		outputFormat as 'mp4' | 'webm',
-		quality,                           // Pass quality preset name
-		videos.settings.stripMetadata,     // Pass metadata stripping setting
+		containerFormat as 'mp4' | 'webm',
+		quality,
+		videos.settings.stripMetadata,
 		(progress) => {
 			videos.updateItem(item.id, {
 				progress: progress.progress,
@@ -381,128 +229,9 @@ async function compressWithWebCodecs(
 	};
 }
 
-// Compress using FFmpeg (software encoding)
-async function compressWithFFmpeg(
-	item: VideoItem
-): Promise<{ blob: Blob; duration: number }> {
-	// Ensure FFmpeg worker is ready
-	await initWorker();
-
-	if (!worker || !workerReady) {
-		throw new Error('FFmpeg not ready');
-	}
-
-	const startTime = Date.now();
-	const quality = videos.settings.quality;
-	const preset = QUALITY_PRESETS[quality];
-	const outputFormat = item.outputFormat;
-
-	// Calculate target bitrate - either from target size or quality preset
-	let targetBitrate: string = preset.targetBitrate;
-	if (videos.settings.targetSizeMB) {
-		const calculatedBitrate = calculateBitrateForSize(item, videos.settings.targetSizeMB, videos.settings);
-		targetBitrate = `${Math.round(calculatedBitrate / 1000)}k`;
-	}
-
-	// Read file as ArrayBuffer
-	const fileData = await item.file.arrayBuffer();
-
-	// Create promise for completion
-	const result = await new Promise<{
-		outputData: ArrayBuffer;
-		outputFormat: string;
-		duration: number;
-	}>((resolve, reject) => {
-		pendingCallbacks.set(item.id, { resolve: resolve as (v: unknown) => void, reject });
-
-		// Send compression request to worker
-		worker!.postMessage({
-			type: 'compress',
-			payload: {
-				id: item.id,
-				fileData,
-				fileName: item.name,
-				outputFormat,
-				settings: {
-					crf: videos.settings.targetSizeMB ? 23 : preset.crf, // Use moderate CRF with target size
-					targetBitrate,
-					preset: videos.settings.preset,
-					resolution: videos.settings.resolution,
-					audioBitrate: videos.settings.audioBitrate,
-					audioCodec: videos.settings.audioCodec,
-					stripMetadata: videos.settings.stripMetadata,
-					twoPass: videos.settings.twoPass || !!videos.settings.targetSizeMB // Use two-pass for target size
-				},
-				// Trim settings
-				trimStart: item.trimStart,
-				trimEnd: item.trimEnd
-			}
-		});
-	});
-
-	// Create blob from output
-	const mimeType =
-		result.outputFormat === 'webm'
-			? 'video/webm'
-			: 'video/mp4';
-	const blob = new Blob([result.outputData], { type: mimeType });
-
-	return {
-		blob,
-		duration: Date.now() - startTime
-	};
-}
-
-// Generate compression preview
-export async function generatePreview(id: string): Promise<string | null> {
-	const item = videos.getItemById(id);
-	if (!item) return null;
-
-	// Always use FFmpeg for previews (more reliable)
-	await initWorker();
-	
-	if (!worker || !workerReady) return null;
-
-	try {
-		const fileData = await item.file.arrayBuffer();
-		const preset = QUALITY_PRESETS[videos.settings.quality];
-
-		const result = await new Promise<{
-			outputData: ArrayBuffer;
-			outputFormat: string;
-		}>((resolve, reject) => {
-			pendingCallbacks.set(`preview_${id}`, { resolve: resolve as (v: unknown) => void, reject });
-
-			worker!.postMessage({
-				type: 'preview',
-				payload: {
-					id,
-					fileData,
-					fileName: item.name,
-					outputFormat: item.outputFormat,
-					settings: {
-						crf: preset.crf,
-						targetBitrate: preset.targetBitrate
-					},
-					duration: item.duration || 60
-				}
-			});
-		});
-
-		const mimeType = result.outputFormat === 'webm' ? 'video/webm' : 'video/mp4';
-		const previewBlob = new Blob([result.outputData], { type: mimeType });
-		const previewUrl = URL.createObjectURL(previewBlob);
-
-		videos.updateItem(id, { previewUrl });
-		return previewUrl;
-	} catch (error) {
-		console.error('Preview generation failed:', error);
-		return null;
-	}
-}
-
 export function getOutputExtension(format: OutputFormat): string {
-	return `.${format}`;
+	// AV1 uses MP4 container
+	return format === 'av1' ? '.mp4' : `.${format}`;
 }
 
 export function getOutputFilename(originalName: string, format: OutputFormat): string {
@@ -581,33 +310,23 @@ export async function reprocessAllVideos() {
 
 // Check all capabilities
 export async function getCapabilities(): Promise<{
-	sharedArrayBuffer: boolean;
 	hardwareConcurrency: number;
 	deviceMemory: number;
 	webCodecs: WebCodecsCapabilities;
-	ffmpegLoaded: boolean;
-	ffmpegMultiThreaded: boolean;
 }> {
 	const webCodecs = await initWebCodecs();
 	
 	return {
-		sharedArrayBuffer: typeof SharedArrayBuffer !== 'undefined',
 		hardwareConcurrency: navigator.hardwareConcurrency || 4,
 		deviceMemory: (navigator as { deviceMemory?: number }).deviceMemory || 4,
-		webCodecs,
-		ffmpegLoaded: videos.ffmpegLoaded,
-		ffmpegMultiThreaded: videos.isMultiThreaded
+		webCodecs
 	};
 }
 
-// Pre-load both encoders
-export async function preloadFFmpeg(): Promise<boolean> {
+// Pre-load encoder (initialize WebCodecs)
+export async function preloadEncoder(): Promise<boolean> {
 	try {
-		// Initialize WebCodecs capabilities
 		await initWebCodecs();
-		
-		// Initialize FFmpeg worker
-		await initWorker();
 		return true;
 	} catch {
 		return false;

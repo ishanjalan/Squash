@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { videos, type VideoItem, type OutputFormat, estimateFileSize, getEffectiveDuration } from '$lib/stores/videos.svelte';
 	import { downloadVideo } from '$lib/utils/download';
-	import { reprocessVideo, generatePreview, getOutputFilename } from '$lib/utils/compress';
+	import { reprocessVideo, getOutputFilename, getCapabilitiesSync } from '$lib/utils/compress';
 	import {
 		Download,
 		X,
@@ -29,6 +29,12 @@
 	let showTrimUI = $state(false);
 	let trimStartInput = $state('');
 	let trimEndInput = $state('');
+	
+	// Check AV1 availability from cached capabilities
+	const av1Available = $derived(() => {
+		const caps = getCapabilitiesSync();
+		return caps?.supportedVideoCodecs.includes('av1') ?? false;
+	});
 
 	const savings = $derived(
 		item.compressedSize ? Math.round((1 - item.compressedSize / item.originalSize) * 100) : 0
@@ -57,7 +63,8 @@
 
 	const availableFormats: { value: OutputFormat; label: string; color: string }[] = [
 		{ value: 'mp4', label: 'MP4', color: 'from-orange-500 to-red-500' },
-		{ value: 'webm', label: 'WebM', color: 'from-green-500 to-emerald-500' }
+		{ value: 'webm', label: 'WebM', color: 'from-green-500 to-emerald-500' },
+		{ value: 'av1', label: 'AV1', color: 'from-purple-500 to-pink-500' }
 	];
 
 	function formatBytes(bytes: number): string {
@@ -408,30 +415,31 @@
 								transition:scale={{ duration: 100, start: 0.95 }}
 							>
 								{#each availableFormats as format}
+									{@const isAv1Disabled = format.value === 'av1' && !av1Available()}
 									<button
-										onclick={() => handleFormatChange(format.value)}
-										class="flex w-full items-center gap-2 px-3 py-2 text-xs transition-colors hover:bg-surface-700 {item.outputFormat === format.value ? 'bg-surface-700/50' : ''}"
+										onclick={() => !isAv1Disabled && handleFormatChange(format.value)}
+										disabled={isAv1Disabled}
+										class="flex w-full items-center gap-2 px-3 py-2 text-xs transition-colors {isAv1Disabled 
+											? 'opacity-50 cursor-not-allowed' 
+											: 'hover:bg-surface-700'} {item.outputFormat === format.value ? 'bg-surface-700/50' : ''}"
+										title={isAv1Disabled ? 'AV1 requires hardware encoder support' : ''}
 									>
 										<span class="h-2 w-2 rounded-full bg-gradient-to-r {format.color}"></span>
 										<span class="font-medium text-surface-300">{format.label}</span>
+										{#if format.value === 'av1' && av1Available()}
+											<span class="ml-auto text-[9px] text-purple-400">GPU</span>
+										{/if}
 									</button>
 								{/each}
 							</div>
 						{/if}
 					</div>
 
-					<!-- Encoder badge -->
-					{#if item.encoderUsed === 'webcodecs'}
-						<span class="inline-flex items-center gap-0.5 rounded bg-purple-500/20 px-1.5 py-0.5 text-[10px] font-medium text-purple-400">
-							<Gpu class="h-2.5 w-2.5" />
-							GPU
-						</span>
-					{:else if item.encoderUsed === 'ffmpeg'}
-						<span class="inline-flex items-center gap-0.5 rounded bg-orange-500/20 px-1.5 py-0.5 text-[10px] font-medium text-orange-400">
-							<Server class="h-2.5 w-2.5" />
-							CPU
-						</span>
-					{/if}
+					<!-- GPU badge (WebCodecs always uses hardware) -->
+					<span class="inline-flex items-center gap-0.5 rounded bg-purple-500/20 px-1.5 py-0.5 text-[10px] font-medium text-purple-400">
+						<Gpu class="h-2.5 w-2.5" />
+						GPU
+					</span>
 
 					{#if item.compressionDuration}
 						<span class="text-[10px] text-surface-500">{(item.compressionDuration / 1000).toFixed(1)}s</span>

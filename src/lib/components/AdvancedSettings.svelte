@@ -10,7 +10,7 @@
 		type Resolution,
 		type AudioCodec
 	} from '$lib/stores/videos.svelte';
-	import { reprocessAllVideos, processVideos } from '$lib/utils/compress';
+	import { reprocessAllVideos, processVideos, initWebCodecs, getCapabilitiesSync } from '$lib/utils/compress';
 	import {
 		Settings2,
 		RefreshCw,
@@ -23,10 +23,20 @@
 		Play
 	} from 'lucide-svelte';
 	import { slide } from 'svelte/transition';
+	import { onMount } from 'svelte';
 
-	const formats: { value: OutputFormat; label: string; desc: string }[] = [
+	// Check if AV1 is available (hardware support required)
+	let av1Available = $state(false);
+	
+	onMount(async () => {
+		const capabilities = await initWebCodecs();
+		av1Available = capabilities.supportedVideoCodecs.includes('av1');
+	});
+
+	const formats: { value: OutputFormat; label: string; desc: string; requiresHardware?: boolean }[] = [
 		{ value: 'mp4', label: 'MP4', desc: 'H.264 • Universal compatibility' },
-		{ value: 'webm', label: 'WebM', desc: 'VP9 • Modern browsers' }
+		{ value: 'webm', label: 'WebM', desc: 'VP9 • Modern browsers' },
+		{ value: 'av1', label: 'AV1', desc: 'Best compression • Requires hardware', requiresHardware: true }
 	];
 
 	const audioCodecs: { value: AudioCodec; label: string; desc: string }[] = [
@@ -238,20 +248,24 @@
 			<!-- Output Format - Inline -->
 			<div class="flex gap-1">
 				{#each formats as format}
+					{@const isAv1Disabled = format.value === 'av1' && !av1Available}
 					<button
-						onclick={() => handleFormatChange(format.value)}
+						onclick={() => !isAv1Disabled && handleFormatChange(format.value)}
+						disabled={isAv1Disabled}
 						class="relative px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-all {videos
 							.settings.outputFormat === format.value
 							? 'bg-accent-start text-white shadow-md shadow-accent-start/30'
-							: 'text-surface-400 hover:text-surface-200 hover:bg-surface-700/50'}"
-						title={format.desc}
+							: isAv1Disabled
+								? 'text-surface-600 cursor-not-allowed'
+								: 'text-surface-400 hover:text-surface-200 hover:bg-surface-700/50'}"
+						title={isAv1Disabled ? 'AV1 requires hardware encoder (Apple M1+, Intel Arc, RTX 40+)' : format.desc}
 					>
 						{format.label}
-						{#if format.badge}
+						{#if format.value === 'av1' && av1Available}
 							<span
-								class="absolute -top-1.5 -right-1.5 px-1 py-0.5 text-[9px] font-bold bg-green-500 text-white rounded"
+								class="absolute -top-1.5 -right-1.5 px-1 py-0.5 text-[9px] font-bold bg-purple-500 text-white rounded"
 							>
-								{format.badge}
+								GPU
 							</span>
 						{/if}
 					</button>
@@ -469,7 +483,9 @@
 						<div class="flex items-start gap-2">
 							<Info class="h-4 w-4 text-surface-400 flex-shrink-0 mt-0.5" />
 							<p class="text-xs text-surface-500">
-								{#if videos.settings.outputFormat === 'webm'}
+								{#if videos.settings.outputFormat === 'av1'}
+									AV1 offers 30-50% better compression than H.264. Requires modern hardware with AV1 encoder.
+								{:else if videos.settings.outputFormat === 'webm'}
 									VP9 provides excellent compression for web delivery with wide browser support.
 								{:else}
 									H.264/MP4 is the most compatible format, playable on virtually all devices.

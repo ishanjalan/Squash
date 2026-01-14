@@ -5,7 +5,6 @@ declare let self: ServiceWorkerGlobalScope;
 import { build, files, version } from '$service-worker';
 
 const CACHE_NAME = `squash-cache-${version}`;
-const FFMPEG_CACHE_NAME = 'squash-ffmpeg-v1';
 const RUNTIME_CACHE_NAME = 'squash-runtime-v1';
 
 // Assets to cache immediately (app shell)
@@ -14,28 +13,10 @@ const PRECACHE_ASSETS = [
 	...files // Static files (icons, manifest, etc.)
 ];
 
-// FFmpeg core files to cache on first use
-const FFMPEG_CORE_URLS = [
-	// Single-threaded core
-	'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.js',
-	'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.wasm',
-	// Multi-threaded core
-	'https://unpkg.com/@ffmpeg/core-mt@0.12.6/dist/esm/ffmpeg-core.js',
-	'https://unpkg.com/@ffmpeg/core-mt@0.12.6/dist/esm/ffmpeg-core.wasm',
-	'https://unpkg.com/@ffmpeg/core-mt@0.12.6/dist/esm/ffmpeg-core.worker.js'
-];
-
-// External libraries to cache
+// External libraries to cache (Mediabunny)
 const EXTERNAL_LIBS = [
-	'https://unpkg.com/@ffmpeg/',
 	'https://cdn.jsdelivr.net/npm/mediabunny'
 ];
-
-// Check if a URL is an FFmpeg core file
-function isFFmpegUrl(url: string): boolean {
-	return FFMPEG_CORE_URLS.some((ffmpegUrl) => url.includes('@ffmpeg/core')) ||
-		url.includes('ffmpeg-core');
-}
 
 // Check if a URL is an external library we should cache
 function isExternalLib(url: string): boolean {
@@ -64,13 +45,13 @@ self.addEventListener('activate', (event) => {
 			// Get all cache keys
 			const keys = await caches.keys();
 			
-			// Delete old caches (keep current app cache, FFmpeg cache, and runtime cache)
+			// Delete old caches (keep current app cache and runtime cache)
 			await Promise.all(
 				keys
 					.filter((key) => 
 						key !== CACHE_NAME && 
-						key !== FFMPEG_CACHE_NAME && 
-						key !== RUNTIME_CACHE_NAME
+						key !== RUNTIME_CACHE_NAME &&
+						!key.startsWith('squash-cache-') // Keep versioned caches during transition
 					)
 					.map((key) => caches.delete(key))
 			);
@@ -97,13 +78,7 @@ self.addEventListener('fetch', (event) => {
 	// Skip chrome-extension and other non-http(s) requests
 	if (!url.protocol.startsWith('http')) return;
 
-	// Handle FFmpeg core files - Cache First (they don't change)
-	if (isFFmpegUrl(event.request.url)) {
-		event.respondWith(cacheFirst(event.request, FFMPEG_CACHE_NAME));
-		return;
-	}
-
-	// Handle external libraries - Stale While Revalidate
+	// Handle external libraries (Mediabunny) - Stale While Revalidate
 	if (isExternalLib(event.request.url)) {
 		event.respondWith(staleWhileRevalidate(event.request, RUNTIME_CACHE_NAME));
 		return;
@@ -229,11 +204,6 @@ self.addEventListener('message', (event) => {
 			event.source?.postMessage({ type: 'VERSION', version });
 			break;
 
-		case 'CACHE_FFMPEG':
-			// Pre-cache FFmpeg files
-			cacheFFmpegFiles();
-			break;
-
 		case 'CLEAR_CACHE':
 			clearAllCaches();
 			break;
@@ -246,40 +216,14 @@ self.addEventListener('message', (event) => {
 	}
 });
 
-// Pre-cache FFmpeg files for offline use
-async function cacheFFmpegFiles(): Promise<void> {
-	const cache = await caches.open(FFMPEG_CACHE_NAME);
-	
-	for (const url of FFMPEG_CORE_URLS) {
-		try {
-			const response = await fetch(url);
-			if (response.ok) {
-				await cache.put(url, response);
-			}
-		} catch (error) {
-			console.warn(`Failed to cache: ${url}`, error);
-		}
-	}
-
-	// Notify clients that FFmpeg is cached
-	const clients = await self.clients.matchAll({ type: 'window' });
-	clients.forEach((client) => {
-		client.postMessage({ type: 'FFMPEG_CACHED' });
-	});
-}
-
 // Check if app can work offline
 async function checkOfflineCapability(): Promise<boolean> {
 	const appCache = await caches.open(CACHE_NAME);
-	const ffmpegCache = await caches.open(FFMPEG_CACHE_NAME);
 
 	// Check if main app is cached
 	const appCached = await appCache.match('/');
-	
-	// Check if at least one FFmpeg core is cached
-	const ffmpegCached = await ffmpegCache.match(FFMPEG_CORE_URLS[0]);
 
-	return !!appCached && !!ffmpegCached;
+	return !!appCached;
 }
 
 // Clear all caches

@@ -1,10 +1,8 @@
 export type VideoFormat = 'mp4' | 'webm' | 'mov' | 'avi' | 'mkv';
-export type OutputFormat = 'mp4' | 'webm';
+export type OutputFormat = 'mp4' | 'webm' | 'av1';
 export type VideoStatus = 'pending' | 'processing' | 'completed' | 'error';
 export type Resolution = 'original' | '2160p' | '1440p' | '1080p' | '720p' | '480p' | '360p';
 export type AudioCodec = 'aac' | 'opus' | 'mp3' | 'copy' | 'none';
-
-export type EncoderType = 'webcodecs' | 'ffmpeg';
 
 export interface VideoItem {
 	id: string;
@@ -28,7 +26,6 @@ export interface VideoItem {
 	bitrate?: number; // bits per second
 	previewUrl?: string;
 	compressionDuration?: number; // How long compression took in ms
-	encoderUsed?: EncoderType; // Which encoder was used (webcodecs = GPU, ffmpeg = software)
 	// Trim settings
 	trimStart?: number; // Start time in seconds
 	trimEnd?: number; // End time in seconds
@@ -386,6 +383,8 @@ export function estimateCompressionTime(
 	// Adjust for format
 	if (settings.outputFormat === 'webm') {
 		baseMultiplier *= 1.5; // VP9 is slower than H.264
+	} else if (settings.outputFormat === 'av1') {
+		baseMultiplier *= 0.8; // AV1 with hardware is fast
 	}
 
 	// Adjust for two-pass
@@ -404,9 +403,6 @@ export function estimateCompressionTime(
 function createVideosStore() {
 	let items = $state<VideoItem[]>([]);
 	let settings = $state<CompressionSettings>(loadSettings());
-	let ffmpegLoaded = $state(false);
-	let ffmpegLoading = $state(false);
-	let isMultiThreaded = $state(false);
 
 	function getFormatFromMime(mimeType: string): VideoFormat {
 		const map: Record<string, VideoFormat> = {
@@ -430,25 +426,6 @@ function createVideosStore() {
 		},
 		get settings() {
 			return settings;
-		},
-		get ffmpegLoaded() {
-			return ffmpegLoaded;
-		},
-		get ffmpegLoading() {
-			return ffmpegLoading;
-		},
-		get isMultiThreaded() {
-			return isMultiThreaded;
-		},
-
-		setFFmpegLoaded(loaded: boolean, multiThreaded = false) {
-			ffmpegLoaded = loaded;
-			ffmpegLoading = false;
-			isMultiThreaded = multiThreaded;
-		},
-
-		setFFmpegLoading(loading: boolean) {
-			ffmpegLoading = loading;
 		},
 
 		async addFiles(files: FileList | File[]) {

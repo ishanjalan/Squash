@@ -286,9 +286,9 @@ export async function encodeWithWebCodecs(
 		// Map Squash quality presets to Mediabunny Quality
 		const quality = QUALITY_MAP[qualityPreset] || QUALITY_MEDIUM;
 
-		// Determine video codec based on output format
-		const videoCodec: VideoCodec = outputFormat === 'mp4' ? 'avc' : 'vp9';
-		const audioCodec: AudioCodec = outputFormat === 'mp4' ? 'aac' : 'opus';
+		// Use codec from config (already determined by compress.ts based on output format)
+		const videoCodec: VideoCodec = config.videoCodec as VideoCodec;
+		const audioCodec: AudioCodec = config.audioCodec as AudioCodec;
 
 		// Calculate trim parameters
 		const trimStart = config.trimStart ?? 0;
@@ -415,12 +415,15 @@ export async function isEncodingSupported(
 }
 
 // Get recommended codec for output format
-export function getRecommendedCodecs(outputFormat: 'mp4' | 'webm'): {
+export function getRecommendedCodecs(outputFormat: 'mp4' | 'webm' | 'av1'): {
 	video: WebCodecsVideoCodec;
 	audio: WebCodecsAudioCodec;
 } {
 	if (outputFormat === 'webm') {
 		return { video: 'vp9', audio: 'opus' };
+	}
+	if (outputFormat === 'av1') {
+		return { video: 'av1', audio: 'aac' }; // AV1 in MP4 container
 	}
 	return { video: 'avc', audio: 'aac' };
 }
