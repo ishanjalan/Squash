@@ -115,16 +115,12 @@ export async function getWebCodecsCapabilities(): Promise<WebCodecsCapabilities>
 
 	for (const test of videoCodecTests) {
 		try {
-			const isSupported = await canEncodeVideo(test.mediabunnyCodec, {
-				width: 1920,
-				height: 1080,
-				bitrate: QUALITY_MEDIUM
-			});
+			// For AV1 and HEVC, we REQUIRE hardware acceleration
+			// Software encoding is too slow to be usable
+			const requiresHardware = test.codec === 'av1' || test.codec === 'hevc';
 			
-			if (isSupported) {
-				supportedVideoCodecs.push(test.codec);
-				
-				// Check hardware acceleration by testing with prefer-hardware
+			if (requiresHardware) {
+				// Check if hardware encoder is actually available
 				try {
 					const support = await VideoEncoder.isConfigSupported({
 						codec: getCodecString(test.codec),
@@ -134,11 +130,69 @@ export async function getWebCodecsCapabilities(): Promise<WebCodecsCapabilities>
 						framerate: 30,
 						hardwareAcceleration: 'prefer-hardware'
 					});
-					if (support.supported && support.config?.hardwareAcceleration === 'prefer-hardware') {
-						hardwareAcceleration = true;
+					
+					// Only enable if hardware acceleration is confirmed
+					// Check that the browser didn't downgrade to software
+					if (support.supported) {
+						// Additional check: try to actually create an encoder briefly
+						// This catches cases where isConfigSupported lies
+						try {
+							const testEncoder = new VideoEncoder({
+								output: () => {},
+								error: () => {}
+							});
+							await testEncoder.configure({
+								codec: getCodecString(test.codec),
+								width: 640,
+								height: 480,
+								bitrate: 1_000_000,
+								framerate: 30,
+								hardwareAcceleration: 'prefer-hardware'
+							});
+							// If configure succeeds, check if it's using hardware
+							// @ts-ignore - hardwareAcceleration may not be in types
+							const isHardware = testEncoder.encodeQueueSize !== undefined;
+							testEncoder.close();
+							
+							if (isHardware) {
+								supportedVideoCodecs.push(test.codec);
+								hardwareAcceleration = true;
+							}
+						} catch {
+							// Encoder creation failed - codec not really supported
+							console.log(`${test.codec.toUpperCase()} hardware encoder not available`);
+						}
 					}
 				} catch {
-					// Hardware detection failed, continue
+					// Hardware not available for this codec
+				}
+			} else {
+				// For H.264 and VP9, software encoding is acceptable
+				const isSupported = await canEncodeVideo(test.mediabunnyCodec, {
+					width: 1920,
+					height: 1080,
+					bitrate: QUALITY_MEDIUM
+				});
+				
+				if (isSupported) {
+					supportedVideoCodecs.push(test.codec);
+					
+					// Check if hardware acceleration is available
+					try {
+						const support = await VideoEncoder.isConfigSupported({
+							codec: getCodecString(test.codec),
+							width: 1920,
+							height: 1080,
+							bitrate: 5_000_000,
+							framerate: 30,
+							hardwareAcceleration: 'prefer-hardware'
+						});
+						if (support.supported && support.config?.hardwareAcceleration === 'prefer-hardware') {
+							hardwareAcceleration = true;
+						}
+					} catch {
+						// Hardware detection failed, continue
+					}
 				}
 			}
 		} catch {

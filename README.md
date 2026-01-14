@@ -24,7 +24,7 @@ Your videos **never leave your device**. All compression happens locally using W
 | **H.264/AVC** | MP4 | ✅ All devices |
 | **H.265/HEVC** | MP4 | ✅ Most modern devices |
 | **VP9** | WebM | ✅ Chrome, Edge, Firefox |
-| **AV1** | MP4 | ⚡ Apple M1+, Intel Arc, RTX 40+ |
+| **AV1** | MP4 | ⚡ Apple M3+, Intel Arc, RTX 40+ |
 | **AAC** | Audio | ✅ All devices |
 | **Opus** | Audio | ✅ Modern browsers |
 
@@ -97,7 +97,7 @@ Your videos **never leave your device**. All compression happens locally using W
 | H.264 | ✅ | ✅ | ✅ | ✅ | No |
 | H.265/HEVC | ✅ | ✅ | ✅ | ❌ | Most devices |
 | VP9 | ✅ | ✅ | ❌ | ✅ | No |
-| AV1 | ⚡ | ⚡ | ⚡ | ⚡ | Apple M1+, Intel Arc, RTX 40+ |
+| AV1 | ⚡ | ⚡ | ⚡ | ⚡ | Apple M3+, Intel Arc, RTX 40+ |
 
 ### Performance
 
