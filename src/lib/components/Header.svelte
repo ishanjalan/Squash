@@ -46,8 +46,13 @@
 				href="{base}/"
 				class="flex items-center gap-3 group"
 				onclick={(e) => {
-					// Scroll to top when clicking logo
+					e.preventDefault();
+					// Scroll to top smoothly when clicking logo
 					window.scrollTo({ top: 0, behavior: 'smooth' });
+					// Also trigger a page refresh if we're already at the top
+					if (window.scrollY === 0) {
+						window.location.href = `${base}/`;
+					}
 				}}
 			>
 				<div
