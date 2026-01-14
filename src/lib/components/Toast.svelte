@@ -63,19 +63,20 @@
 		aria-label="Notifications"
 		aria-live="polite"
 	>
-		{#each toasts as toast (toast.id)}
+		{#each toasts as toastItem (toastItem.id)}
+			{@const IconComponent = icons[toastItem.type]}
 			<div
-				class="glass flex items-center gap-3 rounded-xl border px-4 py-3 shadow-lg {styles[toast.type]}"
+				class="glass flex items-center gap-3 rounded-xl border px-4 py-3 shadow-lg {styles[toastItem.type]}"
 				in:fly={{ x: 100, duration: 200 }}
 				out:fade={{ duration: 150 }}
 				role="alert"
 			>
-				<svelte:component this={icons[toast.type]} class="h-5 w-5 flex-shrink-0" />
+				<IconComponent class="h-5 w-5 flex-shrink-0" />
 				<p class="flex-1 text-sm font-medium text-surface-100">
-					{toast.message}
+					{toastItem.message}
 				</p>
 				<button
-					onclick={() => removeToast(toast.id)}
+					onclick={() => removeToast(toastItem.id)}
 					class="flex-shrink-0 rounded-lg p-1 text-surface-400 transition-colors hover:bg-surface-700 hover:text-surface-300"
 					aria-label="Dismiss notification"
 				>

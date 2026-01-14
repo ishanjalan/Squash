@@ -1,6 +1,39 @@
 <script lang="ts">
 	import { base } from '$app/paths';
-	import { Github, Film } from 'lucide-svelte';
+	import { Github, Film, WifiOff, Wifi } from 'lucide-svelte';
+	import { onMount } from 'svelte';
+	import { fade } from 'svelte/transition';
+
+	let isOnline = $state(true);
+	let showOfflineToast = $state(false);
+
+	onMount(() => {
+		// Initial state
+		isOnline = navigator.onLine;
+
+		// Listen for online/offline events
+		const handleOnline = () => {
+			isOnline = true;
+			showOfflineToast = false;
+		};
+
+		const handleOffline = () => {
+			isOnline = false;
+			showOfflineToast = true;
+			// Auto-hide toast after 5 seconds
+			setTimeout(() => {
+				showOfflineToast = false;
+			}, 5000);
+		};
+
+		window.addEventListener('online', handleOnline);
+		window.addEventListener('offline', handleOffline);
+
+		return () => {
+			window.removeEventListener('online', handleOnline);
+			window.removeEventListener('offline', handleOffline);
+		};
+	});
 </script>
 
 <header class="fixed top-0 left-0 right-0 z-50 px-4 sm:px-6 lg:px-8 py-4">
@@ -22,6 +55,18 @@
 
 			<!-- Right side -->
 			<div class="flex items-center gap-2">
+				<!-- Offline indicator -->
+				{#if !isOnline}
+					<div
+						class="flex items-center gap-2 rounded-xl bg-amber-500/20 px-3 py-2 text-amber-400"
+						title="You're offline - app still works!"
+						transition:fade={{ duration: 150 }}
+					>
+						<WifiOff class="h-4 w-4" />
+						<span class="text-sm font-medium hidden sm:inline">Offline</span>
+					</div>
+				{/if}
+
 				<a
 					href="https://github.com/ishanjalan/Squash"
 					target="_blank"
@@ -35,3 +80,17 @@
 		</nav>
 	</div>
 </header>
+
+<!-- Offline toast notification -->
+{#if showOfflineToast}
+	<div
+		class="fixed top-20 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-xl bg-amber-500 px-4 py-3 text-white shadow-lg"
+		transition:fade={{ duration: 200 }}
+	>
+		<WifiOff class="h-5 w-5" />
+		<div>
+			<p class="font-medium">You're offline</p>
+			<p class="text-sm text-amber-100">Don't worry, Squash works offline!</p>
+		</div>
+	</div>
+{/if}

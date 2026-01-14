@@ -1,15 +1,36 @@
-// Components
-export { default as Header } from './components/Header.svelte';
-export { default as Footer } from './components/Footer.svelte';
-export { default as DropZone } from './components/DropZone.svelte';
-export { default as VideoCard } from './components/VideoCard.svelte';
-export { default as VideoList } from './components/VideoList.svelte';
-export { default as Settings } from './components/Settings.svelte';
-export { default as ConfirmModal } from './components/ConfirmModal.svelte';
-
 // Stores
-export { videos } from './stores/videos.svelte';
+export { videos, QUALITY_PRESETS, RESOLUTION_OPTIONS, AUDIO_BITRATE_OPTIONS } from './stores/videos.svelte';
+export type {
+	VideoItem,
+	VideoFormat,
+	OutputFormat,
+	VideoStatus,
+	Resolution,
+	AudioCodec,
+	CompressionSettings
+} from './stores/videos.svelte';
 
 // Utils
-export { processVideos, reprocessVideo, reprocessAllVideos } from './utils/compress';
+export {
+	processVideos,
+	reprocessVideo,
+	reprocessAllVideos,
+	generatePreview,
+	getOutputExtension,
+	getOutputFilename,
+	getCapabilities,
+	preloadFFmpeg
+} from './utils/compress';
 export { downloadVideo, downloadAllAsZip } from './utils/download';
+export { createFocusTrap, trapFocus, releaseFocus, focusTrap } from './utils/focus-trap';
+export {
+	storeVideo,
+	getVideoBlob,
+	getCompressedBlob,
+	updateCompressedBlob,
+	deleteVideo,
+	clearAllVideos,
+	getStorageUsage,
+	cleanupOldEntries,
+	isLargeFile
+} from './utils/storage';

@@ -2,15 +2,22 @@
 	import Header from '$lib/components/Header.svelte';
 	import Footer from '$lib/components/Footer.svelte';
 	import DropZone from '$lib/components/DropZone.svelte';
-	import VideoList from '$lib/components/VideoList.svelte';
-	import Settings from '$lib/components/Settings.svelte';
+	import DraggableVideoList from '$lib/components/DraggableVideoList.svelte';
+	import AdvancedSettings from '$lib/components/AdvancedSettings.svelte';
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
-	import { videos } from '$lib/stores/videos.svelte';
-	import { Download, Trash2, Film, Zap, Shield, Gauge, ArrowDown } from 'lucide-svelte';
+	import KeyboardShortcuts from '$lib/components/KeyboardShortcuts.svelte';
+	import PerformanceMonitor from '$lib/components/PerformanceMonitor.svelte';
+	import Toast, { toast } from '$lib/components/Toast.svelte';
+	import { videos, QUALITY_PRESETS } from '$lib/stores/videos.svelte';
+	import { Download, Trash2, Film, Zap, Shield, Gauge, ArrowDown, Keyboard, Activity, Clipboard, Cpu, Layers } from 'lucide-svelte';
 	import { downloadAllAsZip } from '$lib/utils/download';
+	import { processVideos, preloadFFmpeg } from '$lib/utils/compress';
 	import { fade, fly } from 'svelte/transition';
+	import { onMount } from 'svelte';
 
 	let showClearConfirm = $state(false);
+	let showShortcuts = $state(false);
+	let showPerformance = $state(false);
 
 	const hasVideos = $derived(videos.items.length > 0);
 	const completedCount = $derived(videos.items.filter((i) => i.status === 'completed').length);
@@ -39,44 +46,171 @@
 		return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 	}
 
+	function showNotification(message: string, type: 'success' | 'error' | 'info' = 'info') {
+		if (type === 'success') {
+			toast.success(message);
+		} else if (type === 'error') {
+			toast.error(message);
+		} else {
+			toast.info(message);
+		}
+	}
+
 	async function handleDownloadAll() {
 		const completedVideos = videos.items.filter((i) => i.status === 'completed' && i.compressedBlob);
 		if (completedVideos.length > 0) {
 			await downloadAllAsZip(completedVideos);
+			showNotification(`Downloaded ${completedVideos.length} videos as ZIP`, 'success');
 		}
 	}
 
-	// Keyboard shortcuts
-	function handleKeydown(e: KeyboardEvent) {
-		if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'd') {
-			e.preventDefault();
-			handleDownloadAll();
+	// Clipboard paste support
+	async function handlePaste(e: ClipboardEvent) {
+		const items = e.clipboardData?.items;
+		if (!items) return;
+
+		const videoFiles: File[] = [];
+		for (const item of items) {
+			if (item.type.startsWith('video/')) {
+				const file = item.getAsFile();
+				if (file) {
+					videoFiles.push(file);
+				}
+			}
 		}
-		if (e.key === 'Escape' && hasVideos) {
-			showClearConfirm = true;
+
+		if (videoFiles.length > 0) {
+			e.preventDefault();
+			const newItems = await videos.addFiles(videoFiles);
+			if (newItems.length > 0) {
+				await processVideos(newItems.map((i) => i.id));
+				showNotification(`Pasted ${newItems.length} video(s) from clipboard`, 'success');
+			}
 		}
 	}
+
+	// Comprehensive keyboard shortcuts
+	function handleKeydown(e: KeyboardEvent) {
+		// Don't trigger shortcuts when typing in inputs
+		if (
+			e.target instanceof HTMLInputElement ||
+			e.target instanceof HTMLTextAreaElement ||
+			e.target instanceof HTMLSelectElement
+		) {
+			return;
+		}
+
+		const isMod = e.metaKey || e.ctrlKey;
+
+		// Cmd/Ctrl + Shift + D - Download all as ZIP
+		if (isMod && e.shiftKey && e.key.toLowerCase() === 'd') {
+			e.preventDefault();
+			handleDownloadAll();
+			return;
+		}
+
+		// Escape - Clear all videos or close modals
+		if (e.key === 'Escape') {
+			if (showShortcuts) {
+				showShortcuts = false;
+			} else if (showPerformance) {
+				showPerformance = false;
+			} else if (hasVideos) {
+				showClearConfirm = true;
+			}
+			return;
+		}
+
+		// ? - Show keyboard shortcuts
+		if (e.key === '?' || (e.shiftKey && e.key === '/')) {
+			e.preventDefault();
+			showShortcuts = true;
+			return;
+		}
+
+		// Quality presets (1-5)
+		const presetKeys: { [key: string]: keyof typeof QUALITY_PRESETS } = {
+			'1': 'tiny',
+			'2': 'web',
+			'3': 'social',
+			'4': 'high',
+			'5': 'lossless'
+		};
+
+		if (presetKeys[e.key]) {
+			e.preventDefault();
+			videos.updateSettings({ quality: presetKeys[e.key] });
+			showNotification(`Quality: ${QUALITY_PRESETS[presetKeys[e.key]].label}`, 'info');
+			return;
+		}
+
+		// Format shortcuts (M, W, A)
+		if (e.key.toLowerCase() === 'm' && !isMod) {
+			e.preventDefault();
+			videos.updateSettings({ outputFormat: 'mp4' });
+			showNotification('Format: MP4', 'info');
+			return;
+		}
+
+		if (e.key.toLowerCase() === 'w' && !isMod) {
+			e.preventDefault();
+			videos.updateSettings({ outputFormat: 'webm' });
+			showNotification('Format: WebM', 'info');
+			return;
+		}
+
+		if (e.key.toLowerCase() === 'a' && !isMod) {
+			e.preventDefault();
+			videos.updateSettings({ outputFormat: 'av1' });
+			showNotification('Format: AV1', 'info');
+			return;
+		}
+
+		// P - Toggle performance monitor
+		if (e.key.toLowerCase() === 'p' && !isMod) {
+			e.preventDefault();
+			showPerformance = !showPerformance;
+			return;
+		}
+	}
+
+	// Preload FFmpeg on mount
+	onMount(() => {
+		// Preload FFmpeg after a short delay to not block initial render
+		setTimeout(() => {
+			preloadFFmpeg().then((loaded) => {
+				if (loaded) {
+					console.log('FFmpeg preloaded successfully');
+				}
+			});
+		}, 1000);
+	});
 
 	const features = [
 		{
-			icon: Zap,
-			title: 'Lightning Fast',
-			description: 'FFmpeg-powered compression in your browser'
+			icon: Cpu,
+			title: 'GPU Accelerated',
+			description: 'Up to 100x faster with WebCodecs hardware encoding'
 		},
 		{
 			icon: Shield,
 			title: '100% Private',
-			description: 'Videos never leave your device'
+			description: 'Videos never leave your device — zero server uploads'
 		},
 		{
 			icon: Gauge,
 			title: 'Pro Codecs',
-			description: 'H.264, VP9, and more'
+			description: 'H.264, VP9, AV1, AAC, Opus via Mediabunny + FFmpeg'
+		},
+		{
+			icon: Layers,
+			title: 'Hybrid Architecture',
+			description: 'Smart fallback from GPU to CPU encoding'
 		}
 	];
 </script>
 
-<svelte:window onkeydown={handleKeydown} />
+<svelte:window onkeydown={handleKeydown} onpaste={handlePaste} />
 
 <div class="flex min-h-screen flex-col">
 	<Header />
@@ -96,45 +230,54 @@
 			<!-- Hero Section -->
 			{#if !hasVideos}
 				<div class="mb-8 sm:mb-12 text-center" in:fade={{ duration: 300 }}>
-					<div class="mb-4 inline-flex items-center gap-2 rounded-full bg-accent-start/10 px-4 py-1.5 text-sm font-medium text-accent-start">
-						<Film class="h-4 w-4" />
-						Free & Open Source
-					</div>
-					<h1 class="mb-4 text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
-						<span class="gradient-text">Compress</span> your videos
-						<br class="hidden sm:block" />
-						<span class="text-surface-400">in your browser</span>
-					</h1>
-					<p class="mx-auto max-w-2xl text-base sm:text-lg text-surface-500 leading-relaxed">
-						Compress MP4, WebM, MOV, and AVI with powerful FFmpeg codecs.
-						<span class="font-medium text-surface-300">100% private</span>
-						— everything runs locally.
-					</p>
+				<div
+					class="mb-4 inline-flex items-center gap-2 rounded-full bg-accent-start/10 px-4 py-1.5 text-sm font-medium text-accent-start"
+				>
+					<Cpu class="h-4 w-4" />
+					GPU-Accelerated • Free & Open Source
+				</div>
+				<h1 class="mb-4 text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
+					<span class="gradient-text">Compress</span> videos
+					<br class="hidden sm:block" />
+					<span class="text-surface-400">at warp speed</span>
+				</h1>
+				<p class="mx-auto max-w-2xl text-base sm:text-lg text-surface-500 leading-relaxed">
+					GPU-accelerated video compression powered by
+					<a href="https://mediabunny.dev" target="_blank" rel="noopener" class="text-accent-start hover:underline">Mediabunny</a> + FFmpeg.
+					<span class="font-medium text-surface-300">100% private</span>
+					— everything runs locally in your browser.
+				</p>
 
 					<!-- Feature Cards -->
-					<div class="mt-10 sm:mt-12 grid gap-4 sm:gap-6 sm:grid-cols-3 max-w-4xl mx-auto">
+					<div class="mt-10 sm:mt-12 grid gap-4 sm:gap-5 grid-cols-2 lg:grid-cols-4 max-w-5xl mx-auto">
 						{#each features as feature, i}
 							<div
-								class="glass group flex items-center gap-4 rounded-2xl p-5 sm:p-6 text-left transition-all hover:scale-[1.02]"
+								class="glass group flex flex-col items-center gap-3 rounded-2xl p-4 sm:p-5 text-center transition-all hover:scale-[1.02]"
 								in:fly={{ y: 20, delay: 100 * i, duration: 300 }}
 							>
 								<div
-									class="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-accent-start/20 to-accent-end/20 text-accent-start"
+									class="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-accent-start/20 to-accent-end/20 text-accent-start"
 								>
-									<feature.icon class="h-6 w-6" />
+									<feature.icon class="h-5 w-5" />
 								</div>
 								<div>
-									<h3 class="text-base font-semibold text-surface-100">
+									<h3 class="text-sm font-semibold text-surface-100">
 										{feature.title}
 									</h3>
-									<p class="text-sm text-surface-500 mt-0.5">{feature.description}</p>
+									<p class="text-xs text-surface-500 mt-1 leading-relaxed">{feature.description}</p>
 								</div>
 							</div>
 						{/each}
 					</div>
 
+					<!-- Clipboard hint -->
+					<div class="mt-6 flex items-center justify-center gap-2 text-surface-500">
+						<Clipboard class="h-4 w-4" />
+						<span class="text-sm">Press <kbd class="rounded bg-surface-800 px-2 py-0.5 text-surface-300">Cmd+V</kbd> to paste videos from clipboard</span>
+					</div>
+
 					<!-- Scroll hint -->
-					<div class="mt-10 flex items-center justify-center gap-2 text-surface-400">
+					<div class="mt-6 flex items-center justify-center gap-2 text-surface-400">
 						<span class="text-sm uppercase tracking-wider">Drop videos below</span>
 						<ArrowDown class="h-4 w-4 animate-bounce" />
 					</div>
@@ -151,9 +294,7 @@
 						<div class="flex items-center gap-3">
 							<Film class="h-6 w-6 text-accent-start" />
 							<span class="text-base text-surface-500">
-								<span class="font-semibold text-surface-100 text-lg"
-									>{completedCount}</span
-								>
+								<span class="font-semibold text-surface-100 text-lg">{completedCount}</span>
 								of {videos.items.length} compressed
 							</span>
 						</div>
@@ -165,15 +306,35 @@
 										>{formatBytes(totalSaved)}</span
 									>
 								</div>
-								<span
-									class="rounded-full bg-green-500/10 px-3 py-1 text-sm font-bold text-green-500"
-								>
+								<span class="rounded-full bg-green-500/10 px-3 py-1 text-sm font-bold text-green-500">
 									-{savingsPercent}%
 								</span>
 							</div>
 						{/if}
 					</div>
 					<div class="flex items-center gap-3">
+						<!-- Performance Monitor Toggle -->
+						<button
+							onclick={() => (showPerformance = !showPerformance)}
+							class="flex items-center gap-2 rounded-xl bg-surface-800 px-4 py-2.5 text-sm font-medium text-surface-400 transition-all hover:bg-surface-700 hover:text-surface-200 {showPerformance
+								? 'ring-1 ring-accent-start/50 text-accent-start'
+								: ''}"
+							title="Performance monitor (P)"
+						>
+							<Activity class="h-4 w-4" />
+							<span class="hidden sm:inline">Stats</span>
+						</button>
+
+						<!-- Keyboard Shortcuts -->
+						<button
+							onclick={() => (showShortcuts = true)}
+							class="flex items-center gap-2 rounded-xl bg-surface-800 px-4 py-2.5 text-sm font-medium text-surface-400 transition-all hover:bg-surface-700 hover:text-surface-200"
+							title="Keyboard shortcuts (?)"
+						>
+							<Keyboard class="h-4 w-4" />
+							<span class="hidden sm:inline">Shortcuts</span>
+						</button>
+
 						{#if completedCount > 0}
 							<button
 								onclick={handleDownloadAll}
@@ -185,7 +346,7 @@
 							</button>
 						{/if}
 						<button
-							onclick={() => showClearConfirm = true}
+							onclick={() => (showClearConfirm = true)}
 							class="flex items-center gap-2 rounded-xl bg-surface-800 px-5 py-2.5 text-sm font-medium text-surface-400 transition-all hover:bg-red-900/20 hover:text-red-400"
 							title="Press Escape to clear"
 						>
@@ -198,7 +359,7 @@
 
 			<!-- Settings Panel -->
 			{#if hasVideos}
-				<Settings />
+				<AdvancedSettings />
 			{/if}
 
 			<!-- Drop Zone -->
@@ -206,7 +367,7 @@
 
 			<!-- Video List -->
 			{#if hasVideos}
-				<VideoList />
+				<DraggableVideoList />
 			{/if}
 		</div>
 	</main>
@@ -223,6 +384,16 @@
 	onconfirm={() => {
 		videos.clearAll();
 		showClearConfirm = false;
+		showNotification('All videos cleared', 'info');
 	}}
-	oncancel={() => showClearConfirm = false}
+	oncancel={() => (showClearConfirm = false)}
 />
+
+<!-- Keyboard Shortcuts Modal -->
+<KeyboardShortcuts open={showShortcuts} onclose={() => (showShortcuts = false)} />
+
+<!-- Performance Monitor -->
+<PerformanceMonitor open={showPerformance} onclose={() => (showPerformance = false)} />
+
+<!-- Toast Notifications -->
+<Toast />
