@@ -15,13 +15,14 @@ export {
 	processVideos,
 	reprocessVideo,
 	reprocessAllVideos,
-	generatePreview,
 	getOutputExtension,
 	getOutputFilename,
 	getCapabilities,
-	preloadFFmpeg
+	preloadEncoder,
+	checkBrowserSupport
 } from './utils/compress';
 export { downloadVideo, downloadAllAsZip } from './utils/download';
+export { formatBytes, formatDuration, formatETA, formatTimeInput, parseTimeInput } from './utils/format';
 export { createFocusTrap, trapFocus, releaseFocus, focusTrap } from './utils/focus-trap';
 export {
 	storeVideo,

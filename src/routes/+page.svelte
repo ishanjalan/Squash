@@ -9,9 +9,10 @@
 	import PerformanceMonitor from '$lib/components/PerformanceMonitor.svelte';
 	import Toast, { toast } from '$lib/components/Toast.svelte';
 	import { videos, QUALITY_PRESETS } from '$lib/stores/videos.svelte';
-	import { Download, Trash2, Film, Zap, Shield, Gauge, ArrowDown, Keyboard, Activity, Clipboard, Cpu, Layers, AlertTriangle } from 'lucide-svelte';
+	import { Download, Trash2, Film, Shield, Gauge, ArrowDown, Keyboard, Activity, Clipboard, Cpu, Layers, AlertTriangle } from 'lucide-svelte';
 	import { downloadAllAsZip } from '$lib/utils/download';
-	import { processVideos, preloadEncoder, checkBrowserSupport, initWebCodecs } from '$lib/utils/compress';
+	import { processVideos, preloadEncoder, checkBrowserSupport } from '$lib/utils/compress';
+	import { formatBytes } from '$lib/utils/format';
 	import { fade, fly } from 'svelte/transition';
 	import { onMount } from 'svelte';
 
@@ -39,14 +40,6 @@
 				) || 0
 			: 0
 	);
-
-	function formatBytes(bytes: number): string {
-		if (bytes === 0) return '0 B';
-		const k = 1024;
-		const sizes = ['B', 'KB', 'MB', 'GB'];
-		const i = Math.floor(Math.log(bytes) / Math.log(k));
-		return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-	}
 
 	function showNotification(message: string, type: 'success' | 'error' | 'info' = 'info') {
 		if (type === 'success') {

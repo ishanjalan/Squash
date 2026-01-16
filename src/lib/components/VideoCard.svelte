@@ -2,6 +2,7 @@
 	import { videos, type VideoItem, type OutputFormat, estimateFileSize, getEffectiveDuration } from '$lib/stores/videos.svelte';
 	import { downloadVideo } from '$lib/utils/download';
 	import { reprocessVideo, getOutputFilename, getCapabilitiesSync } from '$lib/utils/compress';
+	import { formatBytes, formatDuration, formatETA, formatTimeInput, parseTimeInput } from '$lib/utils/format';
 	import {
 		Download,
 		X,
@@ -14,7 +15,6 @@
 		Play,
 		SplitSquareHorizontal,
 		Gpu,
-		Server,
 		Scissors,
 		GripVertical
 	} from 'lucide-svelte';
@@ -72,49 +72,6 @@
 		{ value: 'hevc', label: 'HEVC', color: 'from-blue-500 to-cyan-500' },
 		{ value: 'av1', label: 'AV1', color: 'from-purple-500 to-pink-500' }
 	];
-
-	function formatBytes(bytes: number): string {
-		if (bytes === 0) return '0 B';
-		const k = 1024;
-		const sizes = ['B', 'KB', 'MB', 'GB'];
-		const i = Math.floor(Math.log(bytes) / Math.log(k));
-		return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-	}
-
-	function formatDuration(seconds: number): string {
-		const mins = Math.floor(seconds / 60);
-		const secs = Math.floor(seconds % 60);
-		return `${mins}:${secs.toString().padStart(2, '0')}`;
-	}
-
-	function formatETA(seconds: number): string {
-		if (seconds < 60) return `${seconds}s`;
-		const mins = Math.floor(seconds / 60);
-		const secs = seconds % 60;
-		return `${mins}m ${secs}s`;
-	}
-
-	function formatTimeInput(seconds: number): string {
-		const mins = Math.floor(seconds / 60);
-		const secs = Math.floor(seconds % 60);
-		return `${mins}:${secs.toString().padStart(2, '0')}`;
-	}
-
-	function parseTimeInput(timeStr: string): number | null {
-		// Handle MM:SS format
-		const parts = timeStr.split(':');
-		if (parts.length === 2) {
-			const mins = parseInt(parts[0], 10);
-			const secs = parseInt(parts[1], 10);
-			if (!isNaN(mins) && !isNaN(secs)) {
-				return mins * 60 + secs;
-			}
-		}
-		// Handle raw seconds
-		const secs = parseFloat(timeStr);
-		if (!isNaN(secs)) return secs;
-		return null;
-	}
 
 	function handleTrimUpdate() {
 		const start = parseTimeInput(trimStartInput);
@@ -188,12 +145,6 @@
 		return format?.color || 'from-gray-500 to-gray-600';
 	}
 
-	async function handleGeneratePreview() {
-		const previewUrl = await generatePreview(item.id);
-		if (previewUrl) {
-			showPreview = true;
-		}
-	}
 </script>
 
 <div
