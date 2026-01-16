@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Heart, Github, Shield, Zap, Image } from 'lucide-svelte';
+	import { Heart, Github, Shield, Image, Disc3 } from 'lucide-svelte';
 </script>
 
 <footer class="mt-auto border-t border-surface-800/50 py-6">
@@ -15,31 +15,9 @@
 				<span>Your videos never leave your device</span>
 			</div>
 
-			<!-- Center: Powered by -->
-			<div class="flex items-center gap-2 text-xs text-surface-600">
-				<Zap class="h-3.5 w-3.5" />
-				<span>Powered by</span>
-				<a
-					href="https://mediabunny.dev"
-					target="_blank"
-					rel="noopener noreferrer"
-					class="font-medium text-surface-400 transition-colors hover:text-accent-start"
-				>
-					Mediabunny
-				</a>
-				<span>+</span>
-				<a
-					href="https://github.com/ffmpegwasm/ffmpeg.wasm"
-					target="_blank"
-					rel="noopener noreferrer"
-					class="font-medium text-surface-400 transition-colors hover:text-accent-start"
-				>
-					FFmpeg.wasm
-				</a>
-			</div>
-
-			<!-- Right: Links -->
-			<div class="flex items-center gap-3">
+			<!-- Center: Sibling apps -->
+			<div class="flex items-center gap-3 text-xs text-surface-600">
+				<span>Also try:</span>
 				<a
 					href="https://ishanjalan.github.io/ImageOptimser/"
 					target="_blank"
@@ -49,7 +27,19 @@
 					<Image class="h-3.5 w-3.5" />
 					<span>Squish</span>
 				</a>
-				<span class="text-surface-700">•</span>
+				<a
+					href="https://ishanjalan.github.io/Swirl/"
+					target="_blank"
+					rel="noopener noreferrer"
+					class="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-violet-500/10 to-fuchsia-500/10 px-3 py-1 text-sm font-medium text-violet-400 transition-all hover:from-violet-500/20 hover:to-fuchsia-500/20"
+				>
+					<Disc3 class="h-3.5 w-3.5" />
+					<span>Swirl</span>
+				</a>
+			</div>
+
+			<!-- Right: Links -->
+			<div class="flex items-center gap-3">
 				<a
 					href="https://github.com/ishanjalan/Squash"
 					target="_blank"
