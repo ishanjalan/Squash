@@ -4,8 +4,6 @@ A blazing-fast, privacy-first video compressor that runs entirely in your browse
 
 **The companion to [Squish](https://github.com/ishanjalan/ImageOptimser) for video optimization.**
 
-![Squash Screenshot](static/og-image.svg)
-
 ## ✨ Features
 
 ### 🚀 GPU-Accelerated Encoding
