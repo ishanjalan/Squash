@@ -7,9 +7,10 @@
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import KeyboardShortcuts from '$lib/components/KeyboardShortcuts.svelte';
 	import PerformanceMonitor from '$lib/components/PerformanceMonitor.svelte';
+	import OnboardingModal from '$lib/components/OnboardingModal.svelte';
 	import Toast, { toast } from '$lib/components/Toast.svelte';
 	import { videos, QUALITY_PRESETS } from '$lib/stores/videos.svelte';
-	import { Download, Trash2, Film, Shield, Gauge, ArrowDown, Keyboard, Activity, Clipboard, Cpu, Layers, AlertTriangle } from 'lucide-svelte';
+	import { Download, Trash2, Film, Shield, Gauge, Keyboard, Activity, Clipboard, Cpu, Layers, AlertTriangle, ArrowRight } from 'lucide-svelte';
 	import { downloadAllAsZip } from '$lib/utils/download';
 	import { processVideos, preloadEncoder, checkBrowserSupport } from '$lib/utils/compress';
 	import { formatBytes } from '$lib/utils/format';
@@ -19,6 +20,7 @@
 	let showClearConfirm = $state(false);
 	let showShortcuts = $state(false);
 	let showPerformance = $state(false);
+	let showOnboarding = $state(false);
 	let browserSupported = $state(true);
 	let browserError = $state('');
 
@@ -171,6 +173,11 @@
 			browserError = support.reason || 'WebCodecs not supported';
 		}
 
+		// Show onboarding for first-time users
+		if (!localStorage.getItem('squash-onboarding-seen')) {
+			showOnboarding = true;
+		}
+
 		// Preload WebCodecs capabilities after a short delay
 		setTimeout(() => {
 			preloadEncoder().then((loaded) => {
@@ -180,6 +187,13 @@
 			});
 		}, 500);
 	});
+
+	function dismissOnboarding(dontShowAgain: boolean) {
+		if (dontShowAgain) {
+			localStorage.setItem('squash-onboarding-seen', 'true');
+		}
+		showOnboarding = false;
+	}
 
 	const features = [
 		{
@@ -252,15 +266,51 @@
 					<br class="hidden sm:block" />
 					<span class="text-surface-400">at warp speed</span>
 				</h1>
-				<p class="mx-auto max-w-2xl text-base sm:text-lg text-surface-500 leading-relaxed">
+				<p class="mx-auto max-w-2xl text-base sm:text-lg text-surface-500 leading-relaxed mb-8">
 					GPU-accelerated video compression powered by
 					<a href="https://mediabunny.dev" target="_blank" rel="noopener" class="text-accent-start hover:underline">Mediabunny</a> + WebCodecs.
 					<span class="font-medium text-surface-300">100% private</span>
 					— everything runs locally in your browser.
 				</p>
 
+					<!-- Drop Zone - Primary action above the fold -->
+					<div class="max-w-3xl mx-auto mb-10">
+						<DropZone />
+					</div>
+
+					<!-- Clipboard hint -->
+					<div class="mb-8 flex items-center justify-center gap-2 text-surface-500">
+						<Clipboard class="h-4 w-4" />
+						<span class="text-sm">Or press <kbd class="rounded bg-surface-800 px-2 py-0.5 text-surface-300">Cmd+V</kbd> to paste from clipboard</span>
+					</div>
+
+					<!-- Privacy visualization -->
+					<div class="mb-10 flex items-center justify-center gap-3 sm:gap-4">
+						<div class="flex flex-col items-center">
+							<div class="p-3 rounded-xl bg-surface-800/80 border border-surface-700/50">
+								<Film class="h-5 w-5 text-surface-400" />
+							</div>
+							<span class="text-[10px] text-surface-500 mt-1.5">Your Video</span>
+						</div>
+						
+						<div class="flex items-center gap-1.5 sm:gap-2">
+							<ArrowRight class="h-4 w-4 text-surface-600" />
+							<div class="px-2.5 py-1 rounded-full bg-green-500/15 border border-green-500/30">
+								<span class="text-xs font-medium text-green-400">Stays Local</span>
+							</div>
+							<ArrowRight class="h-4 w-4 text-surface-600" />
+						</div>
+						
+						<div class="flex flex-col items-center">
+							<div class="p-3 rounded-xl bg-gradient-to-br from-accent-start to-accent-end shadow-lg shadow-accent-start/20">
+								<Download class="h-5 w-5 text-white" />
+							</div>
+							<span class="text-[10px] text-surface-500 mt-1.5">Compressed</span>
+						</div>
+					</div>
+
 					<!-- Feature Cards -->
-					<div class="mt-10 sm:mt-12 grid gap-4 sm:gap-5 grid-cols-2 lg:grid-cols-4 max-w-5xl mx-auto">
+					<div class="grid gap-4 sm:gap-5 grid-cols-2 lg:grid-cols-4 max-w-5xl mx-auto">
 						{#each features as feature, i}
 							<div
 								class="glass group flex flex-col items-center gap-3 rounded-2xl p-4 sm:p-5 text-center transition-all hover:scale-[1.02]"
@@ -279,18 +329,6 @@
 								</div>
 							</div>
 						{/each}
-					</div>
-
-					<!-- Clipboard hint -->
-					<div class="mt-6 flex items-center justify-center gap-2 text-surface-500">
-						<Clipboard class="h-4 w-4" />
-						<span class="text-sm">Press <kbd class="rounded bg-surface-800 px-2 py-0.5 text-surface-300">Cmd+V</kbd> to paste videos from clipboard</span>
-					</div>
-
-					<!-- Scroll hint -->
-					<div class="mt-6 flex items-center justify-center gap-2 text-surface-400">
-						<span class="text-sm uppercase tracking-wider">Drop videos below</span>
-						<ArrowDown class="h-4 w-4 animate-bounce" />
 					</div>
 				</div>
 			{/if}
@@ -373,8 +411,10 @@
 				<AdvancedSettings />
 			{/if}
 
-			<!-- Drop Zone -->
-			<DropZone />
+			<!-- Drop Zone (only shown when videos exist, as it's in hero otherwise) -->
+			{#if hasVideos}
+				<DropZone />
+			{/if}
 
 			<!-- Video List -->
 			{#if hasVideos}
@@ -405,6 +445,9 @@
 
 <!-- Performance Monitor -->
 <PerformanceMonitor open={showPerformance} onclose={() => (showPerformance = false)} />
+
+<!-- Onboarding Modal -->
+<OnboardingModal open={showOnboarding} onclose={dismissOnboarding} />
 
 <!-- Toast Notifications -->
 <Toast />

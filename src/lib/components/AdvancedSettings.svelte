@@ -24,6 +24,7 @@
 	} from 'lucide-svelte';
 	import { slide } from 'svelte/transition';
 	import { onMount } from 'svelte';
+	import InfoTooltip from './InfoTooltip.svelte';
 
 	// Check codec availability (hardware support required for some)
 	let av1Available = $state(false);
@@ -46,17 +47,14 @@
 		{ value: 'aac', label: 'AAC', desc: 'Standard' },
 		{ value: 'opus', label: 'Opus', desc: 'Modern' },
 		{ value: 'mp3', label: 'MP3', desc: 'Legacy' },
-		{ value: 'copy', label: 'Copy', desc: 'No re-encode' },
+		{ value: 'copy', label: 'Keep Original', desc: 'No re-encode' },
 		{ value: 'none', label: 'None', desc: 'Remove audio' }
 	];
 
 	const encodingPresets = [
-		{ value: 'ultrafast', label: 'Ultra Fast', speed: 5 },
-		{ value: 'veryfast', label: 'Very Fast', speed: 4 },
-		{ value: 'fast', label: 'Fast', speed: 3 },
-		{ value: 'medium', label: 'Medium', speed: 2 },
-		{ value: 'slow', label: 'Slow', speed: 1 },
-		{ value: 'veryslow', label: 'Very Slow', speed: 0 }
+		{ value: 'veryfast', label: 'Fast', speed: 4, desc: 'Quick encoding, slightly larger files' },
+		{ value: 'medium', label: 'Balanced', speed: 2, desc: 'Good balance of speed and quality' },
+		{ value: 'slow', label: 'Quality', speed: 0, desc: 'Best quality, slower encoding' }
 	] as const;
 
 	const presets = Object.entries(QUALITY_PRESETS).map(([key, value]) => ({
@@ -154,96 +152,116 @@
 	<div class="p-4 sm:p-6">
 		<div class="flex flex-wrap items-center gap-3 sm:gap-4">
 			<!-- Quality Presets -->
-			<div class="flex gap-1">
-				{#each presets as preset}
-					<button
-						onclick={() => handlePresetClick(preset.key)}
-						class="px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-all {videos.settings
-							.quality === preset.key && !hasTargetSize
-							? 'bg-accent-start text-white shadow-md shadow-accent-start/30'
-							: hasTargetSize
-								? 'text-surface-500 hover:text-surface-400 hover:bg-surface-700/30'
-								: 'text-surface-400 hover:text-surface-200 hover:bg-surface-700/50'}"
-						title="{preset.desc} (CRF {preset.crf})"
-					>
-						{preset.label}
-					</button>
-				{/each}
+			<div class="flex flex-col gap-1.5">
+				<span class="text-[10px] text-surface-500 uppercase tracking-wider hidden sm:block">Quality</span>
+				<div class="flex gap-1">
+					{#each presets as preset}
+						<button
+							onclick={() => handlePresetClick(preset.key)}
+							class="px-3 py-2.5 sm:py-1.5 text-sm font-medium rounded-lg transition-all {videos.settings
+								.quality === preset.key && !hasTargetSize
+								? 'bg-accent-start text-white shadow-md shadow-accent-start/30'
+								: hasTargetSize
+									? 'text-surface-500 hover:text-surface-400 hover:bg-surface-700/30'
+									: 'text-surface-400 hover:text-surface-200 hover:bg-surface-700/50'}"
+							title="{preset.desc}"
+						>
+							{preset.label}
+						</button>
+					{/each}
+				</div>
+			</div>
+
+			<!-- OR divider -->
+			<div class="hidden sm:flex items-center gap-2 text-surface-600 self-center">
+				<div class="h-8 w-px bg-surface-700"></div>
+				<span class="text-xs font-medium">or</span>
+				<div class="h-8 w-px bg-surface-700"></div>
 			</div>
 
 			<!-- Target Size - Compact dropdown style -->
-			<div class="relative">
-				<button
-					onclick={() => (showSizePresets = !showSizePresets)}
-					class="flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-all {hasTargetSize
-						? 'bg-accent-start text-white shadow-md shadow-accent-start/30'
-						: 'text-surface-400 hover:text-surface-200 hover:bg-surface-700/50'}"
-				>
-					{hasTargetSize ? `${videos.settings.targetSizeMB} MB` : 'Target Size'}
-					<ChevronDown class="h-3.5 w-3.5" />
-				</button>
-				
-				{#if showSizePresets}
+			<div class="flex flex-col gap-1.5">
+				<span class="text-[10px] text-surface-500 uppercase tracking-wider hidden sm:block">Target Size</span>
+				<div class="relative">
 					<button
-						class="fixed inset-0 z-40"
-						onclick={() => (showSizePresets = false)}
-						aria-label="Close"
-					></button>
-					<div
-						class="absolute left-0 top-full z-50 mt-2 w-48 overflow-hidden rounded-xl bg-surface-800 shadow-xl ring-1 ring-white/10"
-						transition:slide={{ duration: 150 }}
+						onclick={() => (showSizePresets = !showSizePresets)}
+						class="flex items-center gap-1.5 px-3 py-2.5 sm:py-1.5 text-sm font-medium rounded-lg transition-all {hasTargetSize
+							? 'bg-accent-start text-white shadow-md shadow-accent-start/30'
+							: 'text-surface-400 hover:text-surface-200 hover:bg-surface-700/50'}"
 					>
-						<!-- Custom input -->
-						<div class="p-3 border-b border-surface-700/50">
-							<div class="flex items-center gap-2">
-								<input
-									type="text"
-									class="flex-1 rounded-lg bg-surface-700 border border-surface-600 px-3 py-1.5 text-sm text-surface-200 placeholder-surface-500 focus:ring-1 focus:ring-accent-start focus:border-accent-start focus:outline-none"
-									placeholder="Custom MB"
-									bind:value={targetSizeInput}
-									onkeydown={(e) => {
-										if (e.key === 'Enter') {
-											handleTargetSizeChange();
-											showSizePresets = false;
-										}
-									}}
-								/>
-								<button
-									onclick={() => { handleTargetSizeChange(); showSizePresets = false; }}
-									class="px-2 py-1.5 text-xs font-medium rounded-lg bg-accent-start text-white hover:bg-accent-start/80"
-								>
-									Set
-								</button>
+						{hasTargetSize ? `${videos.settings.targetSizeMB} MB` : 'Select...'}
+						<ChevronDown class="h-3.5 w-3.5" />
+					</button>
+					
+					{#if showSizePresets}
+						<button
+							class="fixed inset-0 z-40"
+							onclick={() => (showSizePresets = false)}
+							aria-label="Close"
+						></button>
+						<div
+							class="absolute left-0 top-full z-50 mt-2 w-48 overflow-hidden rounded-xl bg-surface-800 shadow-xl ring-1 ring-white/10"
+							transition:slide={{ duration: 150 }}
+						>
+							<!-- Custom input -->
+							<div class="p-3 border-b border-surface-700/50">
+								<div class="flex items-center gap-2">
+									<input
+										type="text"
+										class="flex-1 rounded-lg bg-surface-700 border border-surface-600 px-3 py-1.5 text-sm text-surface-200 placeholder-surface-500 focus:ring-1 focus:ring-accent-start focus:border-accent-start focus:outline-none"
+										placeholder="Custom MB"
+										bind:value={targetSizeInput}
+										onkeydown={(e) => {
+											if (e.key === 'Enter') {
+												handleTargetSizeChange();
+												showSizePresets = false;
+											}
+										}}
+									/>
+									<button
+										onclick={() => { handleTargetSizeChange(); showSizePresets = false; }}
+										class="px-2 py-1.5 text-xs font-medium rounded-lg bg-accent-start text-white hover:bg-accent-start/80"
+									>
+										Set
+									</button>
+								</div>
 							</div>
-						</div>
-						<!-- Presets -->
-						<div class="p-1.5">
-							{#each sizePresets as preset}
-								<button
-									onclick={() => handleSizePresetClick(preset.sizeMB)}
-									class="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-all {videos.settings.targetSizeMB === preset.sizeMB
-										? 'bg-accent-start/20 text-accent-start'
-										: 'text-surface-300 hover:bg-surface-700'}"
-								>
-									<span class="text-base">{preset.icon}</span>
-									<span class="flex-1 text-left">{preset.label}</span>
-									<span class="text-xs text-surface-500">{preset.sizeMB} MB</span>
-								</button>
-							{/each}
-						</div>
-						{#if hasTargetSize}
-							<div class="p-2 border-t border-surface-700/50">
-								<button
-									onclick={clearTargetSize}
-									class="w-full px-3 py-1.5 text-xs text-surface-500 hover:text-surface-300 transition-colors"
-								>
-									Clear target size
-								</button>
+							<!-- Presets -->
+							<div class="p-1.5">
+								{#each sizePresets as preset}
+									<button
+										onclick={() => handleSizePresetClick(preset.sizeMB)}
+										class="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-all {videos.settings.targetSizeMB === preset.sizeMB
+											? 'bg-accent-start/20 text-accent-start'
+											: 'text-surface-300 hover:bg-surface-700'}"
+									>
+										<span class="text-base">{preset.icon}</span>
+										<span class="flex-1 text-left">{preset.label}</span>
+										<span class="text-xs text-surface-500">{preset.sizeMB} MB</span>
+									</button>
+								{/each}
 							</div>
-						{/if}
-					</div>
-				{/if}
+							{#if hasTargetSize}
+								<div class="p-2 border-t border-surface-700/50">
+									<button
+										onclick={clearTargetSize}
+										class="w-full px-3 py-1.5 text-xs text-surface-500 hover:text-surface-300 transition-colors"
+									>
+										Clear target size
+									</button>
+								</div>
+							{/if}
+						</div>
+					{/if}
+				</div>
 			</div>
+			
+			<!-- Active mode indicator -->
+			{#if hasTargetSize}
+				<p class="text-xs text-accent-start hidden sm:block self-center">
+					→ Compressing to {videos.settings.targetSizeMB} MB
+				</p>
+			{/if}
 
 			<!-- Subtle divider -->
 			<div class="hidden sm:block w-px h-5 bg-surface-700/50"></div>
@@ -257,7 +275,7 @@
 					<button
 						onclick={() => !isDisabled && handleFormatChange(format.value)}
 						disabled={isDisabled}
-						class="relative px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-all {videos
+						class="relative px-3 py-2.5 sm:py-1.5 text-sm font-medium rounded-lg transition-all {videos
 							.settings.outputFormat === format.value
 							? 'bg-accent-start text-white shadow-md shadow-accent-start/30'
 							: isDisabled
@@ -289,7 +307,7 @@
 			<!-- Advanced toggle -->
 			<button
 				onclick={() => (isExpanded = !isExpanded)}
-				class="flex items-center gap-1.5 px-2.5 py-1.5 text-xs sm:text-sm font-medium text-surface-400 hover:text-surface-200 transition-colors"
+				class="flex items-center gap-1.5 px-3 py-2.5 sm:py-1.5 text-sm font-medium text-surface-400 hover:text-surface-200 transition-colors"
 			>
 				<Settings2 class="h-4 w-4" />
 				<span class="hidden sm:inline">Advanced</span>
@@ -305,7 +323,7 @@
 				<button
 					onclick={handleCompressAll}
 					disabled={isProcessing || isAnyProcessing}
-					class="flex items-center gap-2 px-4 sm:px-5 py-2 text-sm font-semibold rounded-xl bg-gradient-to-r from-accent-start to-accent-end text-white shadow-lg shadow-accent-start/30 hover:shadow-xl hover:shadow-accent-start/40 hover:scale-105 transition-all disabled:opacity-50 disabled:hover:scale-100"
+					class="flex items-center gap-2 px-5 py-3 sm:py-2 text-sm font-semibold rounded-xl bg-gradient-to-r from-accent-start to-accent-end text-white shadow-lg shadow-accent-start/30 hover:shadow-xl hover:shadow-accent-start/40 hover:scale-105 transition-all disabled:opacity-50 disabled:hover:scale-100"
 				>
 					{#if isProcessing || isAnyProcessing}
 						<RefreshCw class="h-4 w-4 animate-spin" />
@@ -319,7 +337,7 @@
 				<button
 					onclick={handleRecompressAll}
 					disabled={isProcessing || isAnyProcessing}
-					class="flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-xl bg-surface-700 text-surface-300 hover:bg-surface-600 transition-all disabled:opacity-50"
+					class="flex items-center gap-2 px-4 py-2.5 sm:py-2 text-sm font-medium rounded-xl bg-surface-700 text-surface-300 hover:bg-surface-600 transition-all disabled:opacity-50"
 				>
 					<RefreshCw class="h-4 w-4 {isProcessing || isAnyProcessing ? 'animate-spin' : ''}" />
 					<span class="hidden sm:inline">{isProcessing || isAnyProcessing ? 'Working...' : 'Re-compress'}</span>
@@ -340,6 +358,7 @@
 					<div class="flex items-center gap-2 mb-3">
 						<Maximize class="h-4 w-4 text-surface-400" />
 						<span class="text-sm font-medium text-surface-300">Resolution</span>
+						<InfoTooltip content="Downscaling reduces file size significantly. 1080p is usually sufficient for most uses. Higher resolutions are best for archival or professional work." />
 					</div>
 					<div class="grid grid-cols-2 gap-1.5">
 						{#each RESOLUTION_OPTIONS as option}
@@ -364,6 +383,7 @@
 					<div class="flex items-center gap-2 mb-3">
 						<Volume2 class="h-4 w-4 text-surface-400" />
 						<span class="text-sm font-medium text-surface-300">Audio Codec</span>
+						<InfoTooltip content="AAC is most compatible with all devices. Opus offers better quality at lower bitrates. Keep Original skips re-encoding for fastest processing." />
 					</div>
 					<div class="grid grid-cols-2 gap-1.5">
 						{#each audioCodecs as codec}
@@ -407,19 +427,23 @@
 					<div class="flex items-center gap-2 mb-3">
 						<Zap class="h-4 w-4 text-surface-400" />
 						<span class="text-sm font-medium text-surface-300">Encoding Speed</span>
+						<InfoTooltip content="Faster encoding produces larger files. Slower encoding achieves better compression at the same quality level. Use 'Quality' for final exports." />
 					</div>
 					<div class="space-y-1.5">
 						{#each encodingPresets as preset}
 							<button
 								onclick={() => handleEncodingPresetChange(preset.value)}
-								class="w-full flex items-center justify-between px-3 py-2 text-sm rounded-lg transition-all {videos
+								class="w-full flex items-center justify-between px-3 py-2.5 text-sm rounded-lg transition-all {videos
 									.settings.preset === preset.value
 									? 'bg-accent-start/20 text-accent-start ring-1 ring-accent-start/50'
 									: 'text-surface-400 hover:text-surface-200 hover:bg-surface-700/50'}"
 							>
-								<span class="font-medium">{preset.label}</span>
+								<div class="text-left">
+									<div class="font-medium">{preset.label}</div>
+									<div class="text-xs opacity-70">{preset.desc}</div>
+								</div>
 								<div class="flex gap-0.5">
-									{#each Array(5) as _, i}
+									{#each Array(4) as _, i}
 										<div
 											class="w-1.5 h-3 rounded-sm {i < preset.speed
 												? 'bg-green-500'
@@ -430,9 +454,6 @@
 							</button>
 						{/each}
 					</div>
-					<p class="mt-2 text-xs text-surface-500">
-						Slower = better quality at same file size
-					</p>
 				</div>
 
 				<!-- Options -->
@@ -442,7 +463,7 @@
 						<span class="text-sm font-medium text-surface-300">Options</span>
 					</div>
 					<div class="space-y-3">
-						<!-- Strip Metadata -->
+						<!-- Remove Location Data -->
 						<label class="flex items-center gap-3 cursor-pointer group">
 							<input
 								type="checkbox"
@@ -455,9 +476,9 @@
 								<div
 									class="text-sm font-medium text-surface-300 group-hover:text-surface-100 transition-colors"
 								>
-									Strip Metadata
+									Remove Location Data
 								</div>
-								<div class="text-xs text-surface-500">Remove EXIF, GPS, camera info</div>
+								<div class="text-xs text-surface-500">Strip GPS, camera info, and metadata</div>
 							</div>
 						</label>
 

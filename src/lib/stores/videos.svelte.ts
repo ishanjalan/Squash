@@ -83,8 +83,8 @@ export const QUALITY_PRESETS = {
 	},
 	lossless: {
 		crf: 0,
-		label: 'Lossless',
-		desc: 'No quality loss',
+		label: 'Max Quality',
+		desc: 'Visually lossless',
 		targetBitrate: '0',
 		preset: 'veryslow'
 	}

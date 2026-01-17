@@ -20,6 +20,8 @@
 	} from 'lucide-svelte';
 	import { fade, scale, slide } from 'svelte/transition';
 	import VideoComparison from './VideoComparison.svelte';
+	import TrimTimeline from './TrimTimeline.svelte';
+	import { toast } from './Toast.svelte';
 
 	let { item }: { item: VideoItem } = $props();
 
@@ -131,6 +133,7 @@
 	async function handleFormatChange(format: OutputFormat) {
 		showFormatMenu = false;
 		if (format !== item.outputFormat) {
+			toast.info(`Re-compressing as ${format.toUpperCase()}...`);
 			videos.updateItem(item.id, { outputFormat: format });
 			await reprocessVideo(item.id);
 		}
@@ -206,6 +209,22 @@
 						<Check class="h-3 w-3" />
 						-{savings}%
 					</span>
+					<!-- Confetti for high savings -->
+					{#if savings > 50}
+						<div class="absolute inset-0 pointer-events-none overflow-visible">
+							{#each Array(12) as _, i}
+								<div
+									class="absolute w-1.5 h-1.5 rounded-full animate-confetti"
+									style="
+										background: {['#f97316', '#eab308', '#22c55e', '#8b5cf6', '#ec4899'][i % 5]};
+										left: {50 + (Math.random() - 0.5) * 60}%;
+										top: 50%;
+										animation-delay: {Math.random() * 0.4}s;
+									"
+								></div>
+							{/each}
+						</div>
+					{/if}
 				{:else}
 					<span class="rounded-full bg-amber-500 px-2 py-1 text-xs font-bold text-white shadow-lg">
 						+{Math.abs(savings)}%
@@ -276,11 +295,11 @@
 				{#if item.duration}
 					<button
 						onclick={() => (showTrimUI = !showTrimUI)}
-						class="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded transition-all {showTrimUI || hasTrim
+						class="flex items-center gap-1.5 px-3 py-2 sm:py-1 text-sm sm:text-xs font-medium rounded-lg transition-all {showTrimUI || hasTrim
 							? 'bg-purple-500/20 text-purple-400'
 							: 'text-surface-500 hover:text-surface-300 hover:bg-surface-700/50'}"
 					>
-						<Scissors class="h-3 w-3" />
+						<Scissors class="h-3.5 w-3.5 sm:h-3 sm:w-3" />
 						{hasTrim ? formatDuration(effectiveDuration) : 'Trim'}
 					</button>
 				{/if}
@@ -288,35 +307,26 @@
 
 			<!-- Trim UI (expandable) -->
 			{#if showTrimUI && item.duration}
-				<div class="mt-2 flex items-center gap-1.5" transition:slide={{ duration: 150 }}>
-					<input
-						id="trim-start-{item.id}"
-						type="text"
-						class="w-14 rounded bg-surface-700/80 px-1.5 py-1 text-[11px] text-surface-200 placeholder-surface-500 focus:ring-1 focus:ring-purple-500/50 focus:outline-none text-center font-mono"
-						placeholder="0:00"
-						bind:value={trimStartInput}
-						onblur={handleTrimUpdate}
-						onkeydown={(e) => e.key === 'Enter' && handleTrimUpdate()}
-						aria-label="Start time"
-					/>
-					<span class="text-surface-600 text-[10px]">→</span>
-					<input
-						id="trim-end-{item.id}"
-						type="text"
-						class="w-14 rounded bg-surface-700/80 px-1.5 py-1 text-[11px] text-surface-200 placeholder-surface-500 focus:ring-1 focus:ring-purple-500/50 focus:outline-none text-center font-mono"
-						placeholder={formatTimeInput(item.duration)}
-						bind:value={trimEndInput}
-						onblur={handleTrimUpdate}
-						onkeydown={(e) => e.key === 'Enter' && handleTrimUpdate()}
-						aria-label="End time"
+				<div class="mt-3" transition:slide={{ duration: 200 }}>
+					<TrimTimeline
+						videoUrl={item.originalUrl}
+						duration={item.duration}
+						trimStart={item.trimStart || 0}
+						trimEnd={item.trimEnd ?? item.duration}
+						onchange={(start, end) => {
+							videos.updateItem(item.id, { 
+								trimStart: start > 0 ? start : undefined, 
+								trimEnd: end < item.duration ? end : undefined 
+							});
+						}}
 					/>
 					{#if hasTrim}
 						<button
 							onclick={clearTrim}
-							class="p-0.5 text-surface-500 hover:text-red-400 transition-colors"
+							class="mt-2 w-full py-1.5 text-xs text-surface-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
 							aria-label="Clear trim"
 						>
-							<X class="h-3 w-3" />
+							Reset to full duration
 						</button>
 					{/if}
 				</div>
@@ -385,9 +395,9 @@
 					</div>
 					<button
 						onclick={handleRetry}
-						class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors"
+						class="flex items-center gap-1.5 px-4 py-2.5 sm:py-1.5 text-sm sm:text-xs font-medium rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors"
 					>
-						<RotateCcw class="h-3 w-3" />
+						<RotateCcw class="h-4 w-4 sm:h-3 sm:w-3" />
 						Retry
 					</button>
 				</div>
@@ -404,7 +414,9 @@
 						<button
 							onclick={() => (showFormatMenu = !showFormatMenu)}
 							class="flex items-center gap-1 rounded bg-gradient-to-r {getCurrentFormatColor()} px-2 py-0.5 text-xs font-bold uppercase text-white transition-all hover:opacity-90"
+							title="Re-compress as different format"
 						>
+							<span class="text-[9px] font-normal opacity-80 hidden sm:inline mr-0.5">as</span>
 							{item.outputFormat.toUpperCase()}
 							<ChevronDown class="h-3 w-3" />
 						</button>
@@ -460,17 +472,17 @@
 					{#if item.compressedUrl}
 						<button
 							onclick={() => (showComparison = true)}
-							class="flex h-7 w-7 items-center justify-center rounded text-surface-400 transition-all hover:bg-surface-700 hover:text-surface-200"
+							class="flex h-10 w-10 sm:h-7 sm:w-7 items-center justify-center rounded-lg sm:rounded text-surface-400 transition-all hover:bg-surface-700 hover:text-surface-200"
 							title="Compare"
 						>
-							<SplitSquareHorizontal class="h-3.5 w-3.5" />
+							<SplitSquareHorizontal class="h-4 w-4 sm:h-3.5 sm:w-3.5" />
 						</button>
 					{/if}
 					<button
 						onclick={handleDownload}
-						class="flex h-7 items-center gap-1.5 rounded bg-gradient-to-r from-accent-start to-accent-end px-2.5 text-xs font-medium text-white transition-all hover:opacity-90"
+						class="flex h-10 sm:h-7 items-center gap-1.5 rounded-lg sm:rounded bg-gradient-to-r from-accent-start to-accent-end px-3 sm:px-2.5 text-sm sm:text-xs font-medium text-white transition-all hover:opacity-90"
 					>
-						<Download class="h-3.5 w-3.5" />
+						<Download class="h-4 w-4 sm:h-3.5 sm:w-3.5" />
 					</button>
 				</div>
 			</div>

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { X, ChevronLeft, ChevronRight } from 'lucide-svelte';
 	import { fade } from 'svelte/transition';
+	import { createFocusTrap } from '$lib/utils/focus-trap';
 
 	interface Props {
 		originalUrl: string;
@@ -15,6 +16,15 @@
 	let sliderPosition = $state(50);
 	let isDragging = $state(false);
 	let containerRef: HTMLDivElement;
+	let modalRef = $state<HTMLDivElement | undefined>(undefined);
+
+	// Focus trap for accessibility
+	$effect(() => {
+		if (modalRef) {
+			const cleanup = createFocusTrap(modalRef);
+			return cleanup;
+		}
+	});
 
 	const savings = $derived(Math.round((1 - compressedSize / originalSize) * 100));
 
@@ -85,6 +95,7 @@
 <svelte:window onkeydown={handleKeydown} onmouseup={handleMouseUp} onmousemove={handleMouseMove} />
 
 <div
+	bind:this={modalRef}
 	class="fixed inset-0 z-50 flex items-center justify-center bg-black/95 p-4"
 	role="dialog"
 	aria-modal="true"
