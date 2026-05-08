@@ -127,13 +127,15 @@
 			}
 		</style>
 
-		<link href="/Squash/_app/immutable/entry/start.Br2DQCrc.js" rel="modulepreload">
-		<link href="/Squash/_app/immutable/chunks/DJ2bS3sb.js" rel="modulepreload">
-		<link href="/Squash/_app/immutable/chunks/DcA6LOVF.js" rel="modulepreload">
-		<link href="/Squash/_app/immutable/entry/app.bv0V-0SI.js" rel="modulepreload">
+		<link href="/Squash/_app/immutable/entry/start.0fhw1UEE.js" rel="modulepreload">
+		<link href="/Squash/_app/immutable/chunks/Boy8umjU.js" rel="modulepreload">
+		<link href="/Squash/_app/immutable/chunks/G7B9-uM8.js" rel="modulepreload">
+		<link href="/Squash/_app/immutable/entry/app.CqHIosuO.js" rel="modulepreload">
 		<link href="/Squash/_app/immutable/chunks/Dj6f-nJM.js" rel="modulepreload">
 		<link href="/Squash/_app/immutable/chunks/DEDqjojZ.js" rel="modulepreload">
+		<link href="/Squash/_app/immutable/nodes/0.Bgv5F2ft.js" rel="modulepreload">
 		
+		<link href="/Squash/_app/immutable/assets/0.Cw0MQV82.css" rel="stylesheet">
 	</head>
 	<body data-sveltekit-preload-data="hover">
 		<!-- Instant loader shown while JS loads -->
@@ -155,7 +157,7 @@
 		<div style="display: contents">
 			<script>
 				{
-					__sveltekit_jkuqpe = {
+					__sveltekit_1g0i6hc = {
 						base: "/Squash",
 						assets: "/Squash"
 					};
@@ -163,15 +165,21 @@
 					const element = document.currentScript.parentElement;
 
 					Promise.all([
-						import("/Squash/_app/immutable/entry/start.Br2DQCrc.js"),
-						import("/Squash/_app/immutable/entry/app.bv0V-0SI.js")
+						import("/Squash/_app/immutable/entry/start.0fhw1UEE.js"),
+						import("/Squash/_app/immutable/entry/app.CqHIosuO.js")
 					]).then(([kit, app]) => {
 						kit.start(app, element);
 					});
 
 					if ('serviceWorker' in navigator) {
+						const script_url = '/Squash/service-worker.js';
+						const policy = globalThis?.window?.trustedTypes?.createPolicy(
+							'sveltekit-trusted-url',
+							{ createScriptURL(url) { return url; } }
+						);
+						const sanitised = policy?.createScriptURL(script_url) ?? script_url;
 						addEventListener('load', function () {
-							navigator.serviceWorker.register('/Squash/service-worker.js');
+							navigator.serviceWorker.register(sanitised);
 						});
 					}
 				}
