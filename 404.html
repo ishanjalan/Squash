@@ -127,14 +127,20 @@
 			}
 		</style>
 
-		<link href="/Squash/_app/immutable/entry/start.DNADOQxv.js" rel="modulepreload">
-		<link href="/Squash/_app/immutable/chunks/Dt4h26Nt.js" rel="modulepreload">
-		<link href="/Squash/_app/immutable/chunks/BW3T8AKU.js" rel="modulepreload">
-		<link href="/Squash/_app/immutable/entry/app.DbMAWNRl.js" rel="modulepreload">
+		<link href="/Squash/_app/immutable/entry/start.Ctomp9x2.js" rel="modulepreload">
+		<link href="/Squash/_app/immutable/entry/payload.DSmR2FwN.js" rel="modulepreload">
 		<link href="/Squash/_app/immutable/chunks/CRzLMJPS.js" rel="modulepreload">
+		<link href="/Squash/_app/immutable/chunks/CXWe-KAi.js" rel="modulepreload">
+		<link href="/Squash/_app/immutable/chunks/BpTrnvlZ.js" rel="modulepreload">
+		<link href="/Squash/_app/immutable/chunks/BIaGSH86.js" rel="modulepreload">
+		<link href="/Squash/_app/immutable/chunks/D3_y5liW.js" rel="modulepreload">
+		<link href="/Squash/_app/immutable/chunks/BU5Kw3oY.js" rel="modulepreload">
+		<link href="/Squash/_app/immutable/chunks/DL3DHFQr.js" rel="modulepreload">
+		<link href="/Squash/_app/immutable/entry/app.v8Whi74l.js" rel="modulepreload">
 		<link href="/Squash/_app/immutable/chunks/DdLHl4Ol.js" rel="modulepreload">
-		<link href="/Squash/_app/immutable/chunks/xihTtKlq.js" rel="modulepreload">
-		<link href="/Squash/_app/immutable/nodes/0.B5AIfDuV.js" rel="modulepreload">
+		<link href="/Squash/_app/immutable/nodes/0.B6JFrrqD.js" rel="modulepreload">
+		<link href="/Squash/_app/immutable/chunks/COiEfhsA.js" rel="modulepreload">
+		<link href="/Squash/_app/immutable/chunks/RtIi94-d.js" rel="modulepreload">
 		
 		<link href="/Squash/_app/immutable/assets/0.Cz41J90Q.css" rel="stylesheet">
 	</head>
@@ -158,31 +164,19 @@
 		<div style="display: contents">
 			<script>
 				{
-					__sveltekit_ulv3fa = {
+					__sveltekit_zwansr = {
 						base: "/Squash",
+						version: "1792208794715",
 						assets: "/Squash"
 					};
 
 					const element = document.currentScript.parentElement;
 
-					Promise.all([
-						import("/Squash/_app/immutable/entry/start.DNADOQxv.js"),
-						import("/Squash/_app/immutable/entry/app.DbMAWNRl.js")
-					]).then(([kit, app]) => {
+					import("/Squash/_app/immutable/entry/start.Ctomp9x2.js").then(async (kit) => {
+						kit.init(__sveltekit_zwansr);
+						const app = await import("/Squash/_app/immutable/entry/app.v8Whi74l.js");
 						kit.start(app, element);
 					});
-
-					if ('serviceWorker' in navigator) {
-						const script_url = '/Squash/service-worker.js';
-						const policy = globalThis?.window?.trustedTypes?.createPolicy(
-							'sveltekit-trusted-url',
-							{ createScriptURL(url) { return url; } }
-						);
-						const sanitised = policy?.createScriptURL(script_url) ?? script_url;
-						addEventListener('load', function () {
-							navigator.serviceWorker.register(sanitised);
-						});
-					}
 				}
 			</script>
 		</div>
@@ -213,7 +207,10 @@
 			if ('serviceWorker' in navigator) {
 				window.addEventListener('load', () => {
 					navigator.serviceWorker
-						.register('/Squash/service-worker.js', { scope: '/Squash/' })
+						.register('/Squash/service-worker.js', {
+							type: 'module',
+							scope: '/Squash/',
+						})
 						.then((registration) => {
 							console.log('SW registered:', registration.scope);
 							registration.addEventListener('updatefound', () => {
